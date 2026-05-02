@@ -102,8 +102,8 @@ export default function HistoricoClient() {
             <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', marginBottom: 20 }}>Receita vs Gastos por mês</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160 }}>
               {dados.map(d => {
-                const hRec  = maxReceita > 0 ? Math.round((d.receita / maxReceita) * 140) : 0
-                const hGast = maxReceita > 0 ? Math.round(((d.fixas + d.variaveis) / maxReceita) * 140) : 0
+                const hRec  = maxReceita > 0 && d.receita > 0 ? Math.max(Math.round((d.receita / maxReceita) * 130), 8) : 0
+                const hGast = maxReceita > 0 && (d.fixas + d.variaveis) > 0 ? Math.max(Math.round(((d.fixas + d.variaveis) / maxReceita) * 130), 8) : 0
                 const temDados = d.receita > 0 || d.fixas > 0 || d.variaveis > 0
                 const isMes = d.mes === hoje.getMonth() + 1 && anoSel === hoje.getFullYear()
                 return (
