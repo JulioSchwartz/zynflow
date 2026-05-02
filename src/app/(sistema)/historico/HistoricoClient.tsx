@@ -100,25 +100,29 @@ export default function HistoricoClient() {
         <>
           <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '24px 20px', marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', marginBottom: 20 }}>Receita vs Gastos por mês</div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, paddingBottom: 24, position: 'relative' as const }}>
+              {/* Linha de base */}
+              <div style={{ position: 'absolute' as const, bottom: 24, left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.07)' }} />
               {dados.map(d => {
-                const hRec  = maxReceita > 0 && d.receita > 0 ? Math.max(Math.round((d.receita / maxReceita) * 130), 8) : 0
-                const hGast = maxReceita > 0 && (d.fixas + d.variaveis) > 0 ? Math.max(Math.round(((d.fixas + d.variaveis) / maxReceita) * 130), 8) : 0
+                const maxVal = Math.max(...dados.map(x => Math.max(x.receita, x.fixas + x.variaveis)), 1)
+                const pctRec  = d.receita > 0 ? Math.max((d.receita / maxVal) * 120, 6) : 0
+                const pctGast = (d.fixas + d.variaveis) > 0 ? Math.max(((d.fixas + d.variaveis) / maxVal) * 120, 6) : 0
                 const temDados = d.receita > 0 || d.fixas > 0 || d.variaveis > 0
                 const isMes = d.mes === hoje.getMonth() + 1 && anoSel === hoje.getFullYear()
+                const selecionado = mesSelecionado === d.mes
                 return (
-                  <div key={d.mes} onClick={() => setMesSelecionado(mesSelecionado === d.mes ? null : d.mes)}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 140 }}>
-                      <div style={{ width: '45%', height: hRec, background: temDados ? VERDE : 'rgba(255,255,255,0.05)', borderRadius: '3px 3px 0 0', transition: 'height 0.3s', opacity: mesSelecionado && mesSelecionado !== d.mes ? 0.4 : 1 }} />
-                      <div style={{ width: '45%', height: hGast, background: temDados ? VERM : 'rgba(255,255,255,0.05)', borderRadius: '3px 3px 0 0', transition: 'height 0.3s', opacity: mesSelecionado && mesSelecionado !== d.mes ? 0.4 : 1 }} />
+                  <div key={d.mes} onClick={() => setMesSelecionado(selecionado ? null : d.mes)}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'flex-end', height: '100%', cursor: 'pointer', opacity: mesSelecionado && !selecionado ? 0.4 : 1, transition: 'opacity 0.2s' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, width: '100%', justifyContent: 'center', marginBottom: 4 }}>
+                      <div style={{ width: '42%', height: pctRec, minHeight: temDados && d.receita > 0 ? 6 : 0, background: VERDE, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease' }} />
+                      <div style={{ width: '42%', height: pctGast, minHeight: temDados && (d.fixas + d.variaveis) > 0 ? 6 : 0, background: VERM, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease' }} />
                     </div>
-                    <span style={{ fontSize: 10, color: isMes ? INDIGO : mesSelecionado === d.mes ? '#fff' : '#6B7280', fontWeight: isMes || mesSelecionado === d.mes ? 600 : 400 }}>{MESES[d.mes - 1]}</span>
+                    <span style={{ fontSize: 9, color: isMes ? '#818CF8' : selecionado ? '#fff' : '#4B5563', fontWeight: isMes || selecionado ? 700 : 400, whiteSpace: 'nowrap' as const }}>{MESES[d.mes - 1]}</span>
                   </div>
                 )
               })}
             </div>
-            <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
               <span style={{ fontSize: 12, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: VERDE, display: 'inline-block' }} />Receita</span>
               <span style={{ fontSize: 12, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: VERM, display: 'inline-block' }} />Gastos</span>
             </div>
