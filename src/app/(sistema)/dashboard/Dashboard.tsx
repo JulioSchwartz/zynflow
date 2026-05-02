@@ -1,0 +1,383 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+
+const INDIGO = '#4F46E5'
+const VERDE  = '#22c55e'
+const VERM   = '#ef4444'
+const AMBER  = '#f59e0b'
+
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function BarraProgresso({ pct, cor }: { pct: number; cor: string }) {
+  return (
+    <div style={{ height: 5, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden', margin: '6px 0 4px' }}>
+      <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: cor, borderRadius: 3 }} />
+    </div>
+  )
+}
+
+function KPI({ label, valor, sub, cor }: { label: string; valor: string; sub?: string; cor?: string }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: cor || '#fff' }}>{valor}</div>
+      {sub && <div style={{ fontSize: 11, color: '#4B5563', marginTop: 4 }}>{sub}</div>}
+    </div>
+  )
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: 14, padding: '16px 18px',
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', marginBottom: 14 }}>{title}</div>
+      {children}
+    </div>
+  )
+}
+
+export default function DashboardClient() {
+  const mes  = new Date().getMonth() + 1
+  const ano  = new Date().getFullYear()
+  const semanaDoMes = Math.ceil(new Date().getDate() / 7)
+
+  const [userId, setUserId]           = useState<string | null>(null)
+  const [nomeUsuario, setNomeUsuario] = useState('')
+  const [receitas,   setReceitas]     = useState<any[]>([])
+  const [fixas,      setFixas]        = useState<any[]>([])
+  const [variaveis,  setVariaveis]    = useState<any[]>([])
+  const [reservas,   setReservas]     = useState<any[]>([])
+  const [metas,      setMetas]        = useState<any[]>([])
+  const [contas,     setContas]       = useState<any[]>([])
+  const [loading,    setLoading]      = useState(true)
+
+  useEffect(() => {
+    async function carregar() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setUserId(user.id)
+
+      const [u, r, f, v, res, m, c] = await Promise.all([
+        supabase.from('usuarios_flow').select('nome').eq('user_id', user.id).single(),
+        supabase.from('receitas_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
+        supabase.from('despesas_fixas_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
+        supabase.from('despesas_variaveis_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
+        supabase.from('reservas_flow').select('*').eq('user_id', user.id),
+        supabase.from('metas_flow').select('*').eq('user_id', user.id).eq('status', 'ativa').limit(4),
+        supabase.from('contas_flow').select('*').eq('user_id', user.id),
+      ])
+
+      setNomeUsuario(u.data?.nome || '')
+      setReceitas(r.data || [])
+      setFixas(f.data || [])
+      setVariaveis(v.data || [])
+      setReservas(res.data || [])
+      setMetas(m.data || [])
+      setContas(c.data || [])
+      setLoading(false)
+    }
+    carregar()
+  }, [mes, ano])
+
+  // Cálculos
+  const totalRecebido  = receitas.reduce((s, r) => s + (r.valor_recebido || 0), 0)
+  const totalPrevisto  = receitas.reduce((s, r) => s + (r.valor_previsto || 0), 0)
+  const totalFixas     = fixas.reduce((s, f) => s + (f.valor_mensal || 0), 0)
+  const totalVar       = variaveis.reduce((s, v) => s + (v.valor || 0), 0)
+  const totalSaidas    = totalFixas + totalVar
+  const totalReservado = reservas.reduce((s, r) => s + (r.valor_acumulado || 0), 0)
+  const saldoDisp      = totalRecebido - totalSaidas - totalReservado
+
+  // Teto semanal de variáveis: (receita conservadora ÷ 4) × 30%
+  const receitaConsv   = totalPrevisto > 0 ? totalPrevisto : totalRecebido
+  const tetoSemanal    = Math.round((receitaConsv / 4) * 0.3)
+  // Variáveis desta semana
+  const hoje           = new Date()
+  const varSemana      = variaveis
+    .filter(v => {
+      const d = new Date(v.data + 'T12:00:00')
+      return Math.ceil(d.getDate() / 7) === semanaDoMes
+    })
+    .reduce((s, v) => s + (v.valor || 0), 0)
+  const pctTeto        = tetoSemanal > 0 ? Math.round((varSemana / tetoSemanal) * 100) : 0
+  const restante       = tetoSemanal - varSemana
+
+  // Contas: saldo = saldo_inicial + entradas - saídas
+  const contasComSaldo = contas.map(c => {
+    const entradasConta = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
+    const saidasConta   = variaveis.filter(v => v.conta_id === c.id).reduce((s, v) => s + (v.valor || 0), 0)
+    return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasConta }
+  })
+  const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
+
+  // Variáveis por categoria
+  const catMap: Record<string, number> = {}
+  variaveis.forEach(v => { catMap[v.categoria] = (catMap[v.categoria] || 0) + v.valor })
+  const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+  const diaSemana = hoje.toLocaleDateString('pt-BR', { weekday: 'long' })
+  const dataBR    = hoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
+        <span style={{ color: '#6B7280', fontSize: 14 }}>Carregando...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>
+            Olá, {nomeUsuario || 'bem-vindo'} 👋
+          </h1>
+          <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>
+            {diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)}, {dataBR} · Semana {semanaDoMes} do mês
+          </p>
+        </div>
+        <a href="/despesas/novo" style={{
+          background: INDIGO, color: '#fff', border: 'none',
+          borderRadius: 8, padding: '9px 18px', fontSize: 13,
+          fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
+        }}>+ Lançar</a>
+      </div>
+
+      {/* Alerta teto semanal */}
+      {pctTeto >= 60 && (
+        <div style={{
+          background: pctTeto >= 90 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+          border: `1px solid ${pctTeto >= 90 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+          borderRadius: 10, padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          marginBottom: 16, fontSize: 13,
+          color: pctTeto >= 90 ? '#FCA5A5' : '#FCD34D',
+        }}>
+          <span>{pctTeto >= 90 ? '🚨' : '⚠️'}</span>
+          <span>
+            {pctTeto >= 100
+              ? `Teto semanal de variáveis ultrapassado! Você gastou ${fmt(varSemana)} de ${fmt(tetoSemanal)}.`
+              : `Você está ${pctTeto}% do teto semanal de variáveis. Restam ${fmt(restante)} esta semana.`
+            }
+          </span>
+        </div>
+      )}
+
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+        <KPI label="Receita recebida"   valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
+        <KPI label="Total de saídas"    valor={fmt(totalSaidas)}    sub="Fixas + variáveis"                  cor={VERM}  />
+        <KPI label="Reservado (P3)"     valor={fmt(totalReservado)} sub="Emergência + meses fracos"          cor={INDIGO}/>
+        <KPI label="Saldo disponível"   valor={fmt(saldoDisp)}      sub="Após reservas"                      cor={saldoDisp >= 0 ? '#fff' : VERM} />
+      </div>
+
+      {/* Grid principal */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+
+        {/* Método 3 Passos */}
+        <Card title="Método 3 Passos — este mês">
+          {[
+            {
+              num: 'P1', nome: 'Receitas', desc: `${receitas.length} fonte${receitas.length !== 1 ? 's' : ''} lançada${receitas.length !== 1 ? 's' : ''}`,
+              pct: totalPrevisto > 0 ? Math.round((totalRecebido / totalPrevisto) * 100) : 0,
+              cor: VERDE,
+            },
+            {
+              num: 'P2', nome: 'Gastos', desc: `Fixas ${fmt(totalFixas)} + var. ${fmt(totalVar)}`,
+              pct: totalRecebido > 0 ? Math.round((totalSaidas / totalRecebido) * 100) : 0,
+              cor: AMBER,
+            },
+            {
+              num: 'P3', nome: 'Reservas', desc: 'Emergência + meses fracos + invest.',
+              pct: totalRecebido > 0 ? Math.round((totalReservado / totalRecebido) * 100) : 0,
+              cor: INDIGO,
+            },
+          ].map(p => (
+            <div key={p.num} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%',
+                background: 'rgba(79,70,229,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 600, color: '#818CF8', flexShrink: 0,
+              }}>{p.num}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>{p.nome}</div>
+                <div style={{ fontSize: 11, color: '#6B7280' }}>{p.desc}</div>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: p.cor }}>{p.pct}%</span>
+            </div>
+          ))}
+
+          {/* Teto semanal */}
+          <div style={{
+            marginTop: 12, padding: '12px', borderRadius: 10,
+            background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)',
+          }}>
+            <div style={{ fontSize: 11, color: '#9CA3AF' }}>Teto semanal de variáveis</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: INDIGO, margin: '3px 0' }}>{fmt(tetoSemanal)}</div>
+            <BarraProgresso pct={pctTeto} cor={pctTeto >= 90 ? VERM : pctTeto >= 60 ? AMBER : INDIGO} />
+            <div style={{ fontSize: 11, color: '#6B7280' }}>
+              {fmt(varSemana)} gastos · {fmt(Math.max(restante, 0))} restantes esta semana
+            </div>
+          </div>
+        </Card>
+
+        {/* Despesas fixas */}
+        <Card title="Despesas fixas — status">
+          {fixas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhuma despesa fixa lançada</p>
+              <a href="/despesas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar despesas fixas</a>
+            </div>
+          ) : fixas.slice(0, 5).map(f => {
+            const status = f.pago ? 'pago' : f.dia_vencimento && f.dia_vencimento <= new Date().getDate() ? 'vencida' : 'pendente'
+            const corPill = status === 'pago' ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80' }
+                          : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)', txt: '#FCA5A5' }
+                          : { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF' }
+            return (
+              <div key={f.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                fontSize: 13,
+              }}>
+                <div>
+                  <div style={{ color: '#E5E7EB', fontWeight: 500 }}>{f.descricao}</div>
+                  <div style={{ fontSize: 11, color: '#6B7280' }}>{f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(f.valor_mensal)}</div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, padding: '2px 8px',
+                    borderRadius: 100, background: corPill.bg, color: corPill.txt,
+                  }}>{status}</span>
+                </div>
+              </div>
+            )
+          })}
+          {fixas.length > 5 && (
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <a href="/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixas.length})</a>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Grid inferior */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+
+        {/* Variáveis por categoria */}
+        <Card title="Variáveis por categoria">
+          {cats.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhum gasto variável</p>
+              <a href="/despesas/novo" style={{ fontSize: 13, color: '#818CF8' }}>+ Lançar gasto</a>
+            </div>
+          ) : cats.map(([cat, val], i) => {
+            const cores = [AMBER, '#8b5cf6', '#06b6d4', '#64748b', '#ec4899']
+            const pct = totalVar > 0 ? Math.round((val / totalVar) * 100) : 0
+            return (
+              <div key={cat} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: cores[i], display: 'inline-block' }} />
+                  <span style={{ color: '#E5E7EB' }}>{cat}</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(val)}</div>
+                  <div style={{ fontSize: 11, color: '#6B7280' }}>{pct}%</div>
+                </div>
+              </div>
+            )
+          })}
+        </Card>
+
+        {/* Metas */}
+        <Card title="Metas financeiras">
+          {metas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhuma meta criada</p>
+              <a href="/metas" style={{ fontSize: 13, color: '#818CF8' }}>+ Criar meta</a>
+            </div>
+          ) : metas.map(m => {
+            const pct = m.valor_alvo > 0 ? Math.round((m.valor_atual / m.valor_alvo) * 100) : 0
+            const cor = m.tipo === 'emergencia' ? INDIGO : m.tipo === 'meses_fracos' ? AMBER : VERDE
+            return (
+              <div key={m.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: '#E5E7EB' }}>{m.nome}</span>
+                  <span style={{ fontSize: 11, color: '#6B7280' }}>{fmt(m.valor_atual)} / {fmt(m.valor_alvo)}</span>
+                </div>
+                <BarraProgresso pct={pct} cor={m.cor || INDIGO} />
+                <div style={{ fontSize: 11, color: '#6B7280' }}>
+                  {pct}%{m.prazo ? ` · Prazo: ${new Date(m.prazo + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}` : ''}
+                </div>
+              </div>
+            )
+          })}
+          <a href="/metas" style={{ fontSize: 12, color: '#818CF8', display: 'block', textAlign: 'center', marginTop: 4 }}>
+            Ver todas as metas →
+          </a>
+        </Card>
+
+        {/* Contas */}
+        <Card title="Contas bancárias">
+          {contasComSaldo.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhuma conta cadastrada</p>
+              <a href="/contas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar conta</a>
+            </div>
+          ) : contasComSaldo.map(c => (
+            <div key={c.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: `${c.cor || INDIGO}20`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 600, color: c.cor || INDIGO,
+                }}>
+                  {c.nome.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB' }}>{c.nome}</div>
+                  <div style={{ fontSize: 11, color: '#6B7280' }}>{c.tipo}</div>
+                </div>
+              </div>
+              <div style={{
+                fontSize: 13, fontWeight: 500,
+                color: c.saldo >= 0 ? VERDE : VERM,
+              }}>{fmt(c.saldo)}</div>
+            </div>
+          ))}
+
+          {/* Saldo total */}
+          {contasComSaldo.length > 0 && (
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)',
+            }}>
+              <span style={{ fontSize: 12, color: '#6B7280' }}>Saldo total</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{fmt(saldoTotal)}</span>
+            </div>
+          )}
+        </Card>
+
+      </div>
+    </div>
+  )
+}
