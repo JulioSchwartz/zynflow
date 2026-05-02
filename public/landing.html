@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zynflow — Nunca mais fique sem dinheiro antes do mês acabar</title>
+  <meta name="description" content="O único app de controle financeiro feito para autônomo com renda variável. Método 3 Passos + Fundo de Meses Fracos. 30 dias grátis." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:       #07080F;
+      --bg2:      #0D0F1A;
+      --bg3:      #111320;
+      --indigo:   #4F46E5;
+      --indigo2:  #818CF8;
+      --indigo3:  #C7D2FE;
+      --dim:      rgba(79,70,229,0.12);
+      --line:     rgba(79,70,229,0.25);
+      --verde:    #22c55e;
+      --verm:     #ef4444;
+      --amber:    #f59e0b;
+      --white:    #FFFFFF;
+      --gray1:    #E8EAF2;
+      --gray2:    #8892AA;
+      --gray3:    #3A4055;
+      --border:   rgba(255,255,255,0.07);
+      --border2:  rgba(255,255,255,0.12);
+      --r:        12px;
+      --rl:       20px;
+      --rxl:      28px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Instrument Sans', sans-serif;
+      background: var(--bg);
+      color: var(--gray1);
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* BG GRADIENTE */
+    .bg-glow {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% -5%, rgba(79,70,229,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 85% 100%, rgba(99,102,241,0.10) 0%, transparent 60%);
+    }
+
+    .bg-dots {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 100% 80% at 50% 0%, black 0%, transparent 80%);
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 5vw; height: 62px;
+      transition: background 0.3s, border-color 0.3s;
+      border-bottom: 1px solid transparent;
+    }
+    nav.scrolled { background: rgba(7,8,15,0.94); backdrop-filter: blur(16px); border-color: var(--border); }
+
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo-z {
+      width: 34px; height: 34px; border-radius: 9px; background: var(--indigo);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cabinet Grotesk', sans-serif; font-weight: 800; font-size: 16px; color: #fff;
+    }
+    .nav-logo-name { font-family: 'Cabinet Grotesk', sans-serif; font-weight: 700; font-size: 17px; color: var(--white); }
+
+    .nav-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--indigo); color: #fff; text-decoration: none;
+      font-size: 14px; font-weight: 600; padding: 9px 20px; border-radius: 9px;
+      transition: opacity 0.2s, transform 0.2s; font-family: 'Instrument Sans', sans-serif;
+    }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* HERO */
+    .hero {
+      position: relative; z-index: 1;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 110px 5vw 80px; text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 100px;
+      background: var(--dim); border: 1px solid var(--line);
+      font-size: 13px; color: var(--indigo2); font-weight: 500;
+      margin-bottom: 36px;
+    }
+    .hero-badge::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--indigo2); animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    .hero-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 900; font-size: clamp(40px, 6.5vw, 88px);
+      line-height: 0.96; letter-spacing: -0.04em;
+      color: var(--white); max-width: 960px; margin-bottom: 24px;
+    }
+    .hero-title .red { color: #FC8181; }
+    .hero-title .green {
+      background: linear-gradient(90deg, var(--indigo2), #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(17px, 2vw, 21px); color: var(--gray2);
+      max-width: 560px; margin: 0 auto 48px; font-weight: 400; line-height: 1.65;
+    }
+
+    .hero-form {
+      display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .hero-input {
+      padding: 14px 20px; border-radius: 10px;
+      background: var(--bg2); border: 1px solid var(--border2);
+      font-size: 15px; color: var(--white); outline: none;
+      font-family: 'Instrument Sans', sans-serif; width: 280px;
+      transition: border-color 0.2s;
+    }
+    .hero-input:focus { border-color: var(--indigo); }
+    .hero-input::placeholder { color: var(--gray3); }
+
+    .btn-hero {
+      padding: 14px 28px; border-radius: 10px;
+      background: var(--indigo); color: #fff; border: none;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: 'Instrument Sans', sans-serif;
+      transition: opacity 0.2s, transform 0.2s; white-space: nowrap;
+    }
+    .btn-hero:hover { opacity: 0.88; transform: translateY(-2px); }
+
+    .hero-fine {
+      font-size: 13px; color: var(--gray3);
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center;
+    }
+    .hero-fine span { display: flex; align-items: center; gap: 5px; }
+    .hero-fine span::before { content: '✓'; color: var(--verde); font-weight: 700; }
+
+    /* SOCIAL PROOF */
+    .social-proof {
+      position: relative; z-index: 1;
+      padding: 20px 5vw 60px; text-align: center;
+    }
+    .sp-label { font-size: 12px; color: var(--gray3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+    .sp-nums { display: flex; gap: 48px; justify-content: center; flex-wrap: wrap; }
+    .sp-num-val { font-family: 'Cabinet Grotesk', sans-serif; font-size: 32px; font-weight: 800; color: var(--white); line-height: 1; }
+    .sp-num-label { font-size: 13px; color: var(--gray2); margin-top: 4px; }
+
+    /* SEÇÃO BASE */
+    section { position: relative; z-index: 1; padding: 100px 5vw; }
+
+    .sec-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--indigo2); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sec-label::before { content: ''; width: 20px; height: 1px; background: var(--indigo2); }
+
+    .sec-h {
+      font-family: 'Cabinet Grotesk', sans-serif; font-weight: 800;
+      font-size: clamp(30px, 4vw, 52px); color: var(--white);
+      line-height: 1.06; letter-spacing: -0.03em;
+    }
+    .sec-p { font-size: 17px; color: var(--gray2); max-width: 500px; margin-top: 16px; line-height: 1.7; }
+
+    /* DOR */
+    #dor { background: var(--bg2); }
+    .dor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+    .dor-cards { display: flex; flex-direction: column; gap: 14px; }
+    .dor-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--rl); padding: 20px 22px;
+      display: flex; align-items: flex-start; gap: 16px;
+      transition: border-color 0.2s;
+    }
+    .dor-card:hover { border-color: rgba(252,129,129,0.3); }
+    .dor-icon { font-size: 28px; flex-shrink: 0; }
+    .dor-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+    .dor-desc { font-size: 14px; color: var(--gray2); line-height: 1.55; }
+
+    /* MÉTODO */
+    #metodo { background: var(--bg); }
+    .metodo-header { text-align: center; max-width: 680px; margin: 0 auto 64px; }
+    .metodo-header .sec-label { justify-content: center; }
+    .metodo-header .sec-label::before { display: none; }
+    .metodo-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .metodo-step {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--rxl); padding: 32px 28px;
+      position: relative; overflow: hidden;
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .metodo-step:hover { border-color: var(--indigo); transform: translateY(-4px); }
+    .metodo-step::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--step-color, var(--indigo)); opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .metodo-step:hover::before { opacity: 1; }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 10px;
+      background: color-mix(in srgb, var(--step-color, var(--indigo)) 15%, transparent);
+      font-family: 'Cabinet Grotesk', sans-serif; font-size: 16px; font-weight: 800;
+      color: var(--step-color, var(--indigo)); margin-bottom: 20px;
+    }
+    .step-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 20px; font-weight: 800; color: var(--white); margin-bottom: 10px; letter-spacing: -0.02em; }
+    .step-sub { font-size: 13px; color: var(--step-color, var(--indigo2)); font-weight: 600; margin-bottom: 14px; display: block; }
+    .step-desc { font-size: 14px; color: var(--gray2); line-height: 1.65; margin-bottom: 20px; }
+    .step-items { list-style: none; }
+    .step-items li { font-size: 13px; color: var(--gray2); padding: 5px 0; display: flex; gap: 8px; border-bottom: 1px solid var(--border); }
+    .step-items li:last-child { border-bottom: none; }
+    .step-items li::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--step-color, var(--indigo)); flex-shrink: 0; margin-top: 7px; }
+
+    /* FUNCIONALIDADES */
+    #funcionalidades { background: var(--bg2); }
+    .func-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 16px; }
+    .func-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--rl); padding: 24px 22px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .func-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+    .func-icon { font-size: 28px; margin-bottom: 14px; }
+    .func-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+    .func-desc { font-size: 13px; color: var(--gray2); line-height: 1.6; }
+
+    /* TRANSFORMAÇÃO */
+    #transformacao { background: var(--bg); }
+    .trans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    .trans-col { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--rl); padding: 28px; }
+    .trans-col.antes { border-color: rgba(239,68,68,0.2); }
+    .trans-col.depois { border-color: rgba(34,197,94,0.2); }
+    .trans-col-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+    .trans-col.antes .trans-col-title { color: #FC8181; }
+    .trans-col.depois .trans-col-title { color: #4ade80; }
+    .trans-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--gray2); align-items: flex-start; }
+    .trans-item:last-child { border-bottom: none; }
+    .trans-item .ti { flex-shrink: 0; font-size: 16px; }
+
+    /* DEPOIMENTOS */
+    #depoimentos { background: var(--bg2); }
+    .dep-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+    .dep-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--rl); padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .dep-card:hover { border-color: var(--border2); }
+    .dep-stars { color: #f59e0b; font-size: 14px; margin-bottom: 14px; letter-spacing: 2px; }
+    .dep-text { font-size: 14px; color: var(--gray1); line-height: 1.7; margin-bottom: 20px; font-style: italic; }
+    .dep-author { display: flex; align-items: center; gap: 12px; }
+    .dep-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--indigo); display: flex; align-items: center; justify-content: center;
+      font-family: 'Cabinet Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #fff;
+    }
+    .dep-name { font-size: 14px; font-weight: 600; color: var(--white); }
+    .dep-role { font-size: 12px; color: var(--gray2); }
+
+    /* PLANO */
+    #plano { background: var(--bg); }
+    .plano-box {
+      max-width: 480px; margin: 0 auto;
+      background: var(--bg2); border: 1px solid var(--line);
+      border-radius: var(--rxl); padding: 48px 44px; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .plano-box::before {
+      content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+      width: 400px; height: 300px;
+      background: radial-gradient(ellipse, rgba(79,70,229,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .plano-badge {
+      display: inline-block; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 100px;
+      background: var(--dim); color: var(--indigo2);
+      border: 1px solid var(--line); margin-bottom: 24px;
+    }
+    .plano-price { font-family: 'Cabinet Grotesk', sans-serif; font-size: 64px; font-weight: 900; color: var(--white); line-height: 1; letter-spacing: -0.04em; margin-bottom: 4px; }
+    .plano-price span { font-size: 24px; font-weight: 400; color: var(--gray2); }
+    .plano-trial { font-size: 14px; color: var(--verde); font-weight: 600; margin-bottom: 32px; }
+    .plano-items { list-style: none; margin-bottom: 36px; text-align: left; }
+    .plano-items li { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; color: var(--gray1); border-bottom: 1px solid var(--border); }
+    .plano-items li:last-child { border-bottom: none; }
+    .plano-items li::before { content: '✓'; color: var(--verde); font-weight: 700; flex-shrink: 0; }
+    .btn-plano {
+      width: 100%; padding: 15px; border-radius: 12px;
+      background: var(--indigo); color: #fff; border: none;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      font-family: 'Instrument Sans', sans-serif;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .btn-plano:hover { opacity: 0.88; transform: translateY(-2px); }
+    .plano-fine { font-size: 12px; color: var(--gray3); margin-top: 14px; }
+
+    /* FAQ */
+    #faq { background: var(--bg2); }
+    .faq-wrap { max-width: 720px; margin: 0 auto; }
+    .faq-item {
+      border-bottom: 1px solid var(--border); padding: 0;
+      cursor: pointer; overflow: hidden;
+    }
+    .faq-item:first-child { border-top: 1px solid var(--border); }
+    .faq-q {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 0; font-size: 16px; font-weight: 500; color: var(--white);
+      user-select: none;
+    }
+    .faq-icon { font-size: 20px; color: var(--indigo2); transition: transform 0.3s; flex-shrink: 0; }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+    .faq-a { font-size: 14px; color: var(--gray2); line-height: 1.7; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.3s; }
+    .faq-item.open .faq-a { max-height: 300px; padding-bottom: 20px; }
+
+    /* CTA FINAL */
+    #cta-final { background: var(--bg); padding: 120px 5vw; }
+    .cta-box {
+      max-width: 760px; margin: 0 auto; text-align: center;
+      background: var(--bg2); border: 1px solid var(--line);
+      border-radius: var(--rxl); padding: 72px 60px;
+      position: relative; overflow: hidden;
+    }
+    .cta-box::before {
+      content: ''; position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      width: 500px; height: 300px;
+      background: radial-gradient(ellipse, rgba(79,70,229,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-box .sec-h { position: relative; z-index: 1; }
+    .cta-final-sub { font-size: 18px; color: var(--gray2); margin: 16px auto 40px; max-width: 460px; position: relative; z-index: 1; }
+    .cta-final-form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+
+    /* FOOTER */
+    footer {
+      background: var(--bg2); border-top: 1px solid var(--border);
+      padding: 40px 5vw; display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 16px;
+      position: relative; z-index: 1;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--gray3); text-decoration: none; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--white); }
+    .footer-copy { font-size: 13px; color: var(--gray3); }
+
+    /* ANIMAÇÕES */
+    .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1); }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+
+    /* RESPONSIVO */
+    @media (max-width: 900px) {
+      .dor-grid, .trans-grid { grid-template-columns: 1fr; gap: 32px; }
+      .metodo-steps { grid-template-columns: 1fr; }
+      .dep-grid { grid-template-columns: 1fr; }
+      .cta-box { padding: 48px 28px; }
+    }
+    @media (max-width: 640px) {
+      section { padding: 72px 5vw; }
+      .hero-input { width: 100%; }
+      footer { flex-direction: column; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+<div class="bg-dots"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-z">Z</div>
+    <span class="nav-logo-name">Zynflow</span>
+  </a>
+  <a href="/auth/cadastro" class="nav-cta">Começar grátis →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <span class="hero-badge">Para autônomos com renda variável</span>
+
+  <h1 class="hero-title">
+    Você recebe bem<br/>
+    <span class="red">e o dinheiro some.</span><br/>
+    <span class="green">Isso vai mudar.</span>
+  </h1>
+
+  <p class="hero-sub">
+    O Zynflow é o único app de finanças feito especificamente para autônomo. Com o Método 3 Passos, você vai saber exatamente para onde vai cada real — e nunca mais vai ficar no sufoco antes do mês acabar.
+  </p>
+
+  <div class="hero-form">
+    <input type="email" class="hero-input" placeholder="Digite seu melhor e-mail" id="hero-email" />
+    <button class="btn-hero" onclick="irParaCadastro()">Começar 30 dias grátis →</button>
+  </div>
+
+  <div class="hero-fine">
+    <span>30 dias grátis</span>
+    <span>Sem cartão de crédito</span>
+    <span>Cancele quando quiser</span>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<div class="social-proof reveal">
+  <p class="sp-label">Autônomos que já controlam suas finanças</p>
+  <div class="sp-nums">
+    <div>
+      <div class="sp-num-val">+1.200</div>
+      <div class="sp-num-label">Usuários ativos</div>
+    </div>
+    <div>
+      <div class="sp-num-val">R$ 2,4M</div>
+      <div class="sp-num-label">Lançados no app</div>
+    </div>
+    <div>
+      <div class="sp-num-val">4.8★</div>
+      <div class="sp-num-label">Avaliação média</div>
+    </div>
+    <div>
+      <div class="sp-num-val">87%</div>
+      <div class="sp-num-label">Continuam após o trial</div>
+    </div>
+  </div>
+</div>
+
+<!-- DOR -->
+<section id="dor">
+  <div class="dor-grid">
+    <div class="reveal">
+      <div class="sec-label">O problema</div>
+      <h2 class="sec-h">Você não é ruim com dinheiro.<br/>O sistema é ruim para você.</h2>
+      <p class="sec-p">
+        Todo app de finanças foi feito para quem tem salário fixo. Mas você é autônomo — sua renda sobe e desce, e ninguém te ensinou a lidar com isso.
+      </p>
+    </div>
+    <div class="dor-cards reveal">
+      <div class="dor-card">
+        <span class="dor-icon">😰</span>
+        <div>
+          <div class="dor-title">O mês bom te ilude</div>
+          <div class="dor-desc">Entrou R$ 8.000, você gastou pensando que sempre seria assim. No mês seguinte entrou R$ 3.000 — e o desespero bateu.</div>
+        </div>
+      </div>
+      <div class="dor-card">
+        <span class="dor-icon">😤</span>
+        <div>
+          <div class="dor-title">As contas não esperam</div>
+          <div class="dor-desc">Aluguel, plano de saúde, DAS, internet — chegam todo mês, independente de quanto você recebeu. Fixas são implacáveis.</div>
+        </div>
+      </div>
+      <div class="dor-card">
+        <span class="dor-icon">😱</span>
+        <div>
+          <div class="dor-title">Qualquer imprevisto vira crise</div>
+          <div class="dor-desc">Sem reserva, um mês sem cliente, uma doença ou um equipamento quebrado — e tudo vai por água abaixo.</div>
+        </div>
+      </div>
+      <div class="dor-card">
+        <span class="dor-icon">😶</span>
+        <div>
+          <div class="dor-title">Você não sabe para onde vai</div>
+          <div class="dor-desc">No fim do mês olha o extrato e se pergunta: "Como gastei tudo isso?" A resposta: você nunca viu em tempo real.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MÉTODO -->
+<section id="metodo">
+  <div class="metodo-header reveal">
+    <div class="sec-label">A solução</div>
+    <h2 class="sec-h">O Método 3 Passos para autônomo</h2>
+    <p class="sec-p" style="margin: 16px auto 0;">Não é teoria de livro. É o método que funciona na prática para quem não tem salário fixo — digitalizado e automatizado no Zynflow.</p>
+  </div>
+
+  <div class="metodo-steps">
+    <div class="metodo-step reveal" style="--step-color: #818CF8;">
+      <div class="step-num">P1</div>
+      <div class="step-title">Mapeie sua receita</div>
+      <span class="step-sub">Visibilidade total do que entra</span>
+      <div class="step-desc">Lance tudo que vai entrar no mês. Separe o certo do incerto. Trabalhe sempre com o valor conservador — o menor que você espera.</div>
+      <ul class="step-items">
+        <li>Previsto vs real em tempo real</li>
+        <li>Múltiplas fontes de renda</li>
+        <li>Botão "Recebi" com um clique</li>
+        <li>Regra de ouro: nunca gaste o que não entrou</li>
+      </ul>
+    </div>
+
+    <div class="metodo-step reveal" style="--step-color: #f59e0b;">
+      <div class="step-num">P2</div>
+      <div class="step-title">Controle cada centavo</div>
+      <span class="step-sub">Teto semanal automático</span>
+      <div class="step-desc">Divida seus gastos em fixos e variáveis. O Zynflow calcula automaticamente seu teto semanal de gastos — e te avisa quando está perto do limite.</div>
+      <ul class="step-items">
+        <li>Despesas fixas com status pago/pendente</li>
+        <li>Variáveis por categoria com percentual</li>
+        <li>Teto semanal: (renda ÷ 4) × 30%</li>
+        <li>Alerta quando ultrapassa 60% e 90%</li>
+      </ul>
+    </div>
+
+    <div class="metodo-step reveal" style="--step-color: #22c55e;">
+      <div class="step-num">P3</div>
+      <div class="step-title">Pague-se primeiro</div>
+      <span class="step-sub">Reservas automáticas por %</span>
+      <div class="step-desc">Assim que receber qualquer valor, transfira ANTES de pagar qualquer conta: 10% emergência → 10% meses fracos → 5% investimento.</div>
+      <ul class="step-items">
+        <li>Reserva de emergência (meta: 6x fixas)</li>
+        <li>Fundo de Meses Fracos — exclusivo autônomo</li>
+        <li>Investimento de longo prazo</li>
+        <li>Aporte ideal calculado automaticamente</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- FUNCIONALIDADES -->
+<section id="funcionalidades">
+  <div class="reveal" style="text-align:center; max-width: 640px; margin: 0 auto 56px;">
+    <div class="sec-label" style="justify-content:center;">
+      <span style="width:0"></span>Funcionalidades
+    </div>
+    <h2 class="sec-h">Tudo que você precisa.<br/>Nada que você não precisa.</h2>
+  </div>
+
+  <div class="func-grid reveal">
+    <div class="func-card">
+      <div class="func-icon">📊</div>
+      <div class="func-title">Dashboard inteligente</div>
+      <div class="func-desc">Visão completa do mês em um só lugar. Receita, gastos, reservas e saldo disponível — atualizado em tempo real.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">🎯</div>
+      <div class="func-title">Perspectiva financeira</div>
+      <div class="func-desc">No primeiro acesso, o sistema calcula quanto você precisa guardar por mês para atingir seu objetivo em X meses.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">📦</div>
+      <div class="func-title">Fundo de Meses Fracos</div>
+      <div class="func-desc">O diferencial exclusivo do Zynflow. Guarde nos meses bons e sobreviva nos ruins sem entrar no vermelho.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">⚠️</div>
+      <div class="func-title">Alertas de teto semanal</div>
+      <div class="func-desc">Você recebe um aviso quando está perto do limite de gastos variáveis da semana. Antes de estourar, não depois.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">✅</div>
+      <div class="func-title">Checklist semanal</div>
+      <div class="func-desc">15 minutos toda semana para revisar receitas, gastos e metas. O hábito que separa quem controla de quem sofre.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">📈</div>
+      <div class="func-title">Histórico anual</div>
+      <div class="func-desc">Veja seus meses fracos, sazonalidades e tendências. Planeje o próximo ano sabendo o que esperar.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">🏦</div>
+      <div class="func-title">Múltiplas contas</div>
+      <div class="func-desc">Nubank, Banco do Brasil, carteira, poupança — tudo num só lugar com saldo consolidado.</div>
+    </div>
+    <div class="func-card">
+      <div class="func-icon">🎯</div>
+      <div class="func-title">Metas financeiras</div>
+      <div class="func-desc">Crie objetivos com prazo e faça aportes. O sistema mostra o progresso e calcula quanto falta.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSFORMAÇÃO -->
+<section id="transformacao">
+  <div class="reveal" style="text-align:center; max-width:640px; margin: 0 auto 56px;">
+    <div class="sec-label" style="justify-content:center;"><span style="width:0"></span>A transformação</div>
+    <h2 class="sec-h">Como sua vida financeira muda em 90 dias</h2>
+  </div>
+
+  <div class="trans-grid reveal">
+    <div class="trans-col antes">
+      <div class="trans-col-title">😰 Antes do Zynflow</div>
+      <div class="trans-item"><span class="ti">❌</span>Não sabe para onde vai o dinheiro</div>
+      <div class="trans-item"><span class="ti">❌</span>Gasta nos meses bons e sofre nos ruins</div>
+      <div class="trans-item"><span class="ti">❌</span>Zero de reserva de emergência</div>
+      <div class="trans-item"><span class="ti">❌</span>Abre o extrato no fim do mês e se assusta</div>
+      <div class="trans-item"><span class="ti">❌</span>Qualquer imprevisto vira uma crise</div>
+      <div class="trans-item"><span class="ti">❌</span>Planeja com base no melhor cenário</div>
+      <div class="trans-item"><span class="ti">❌</span>Nunca sobra nada para investir</div>
+    </div>
+    <div class="trans-col depois">
+      <div class="trans-col-title">✨ Depois do Zynflow</div>
+      <div class="trans-item"><span class="ti">✅</span>Sabe exatamente quanto entra e sai</div>
+      <div class="trans-item"><span class="ti">✅</span>Tem Fundo de Meses Fracos crescendo</div>
+      <div class="trans-item"><span class="ti">✅</span>Reserva de emergência sendo construída</div>
+      <div class="trans-item"><span class="ti">✅</span>Acompanha os gastos em tempo real</div>
+      <div class="trans-item"><span class="ti">✅</span>Imprevistos viram só inconveniências</div>
+      <div class="trans-item"><span class="ti">✅</span>Planeja sempre pelo valor conservador</div>
+      <div class="trans-item"><span class="ti">✅</span>Investe todo mês, mesmo que pouco</div>
+    </div>
+  </div>
+</section>
+
+<!-- DEPOIMENTOS -->
+<section id="depoimentos">
+  <div class="reveal" style="text-align:center; max-width:640px; margin: 0 auto 56px;">
+    <div class="sec-label" style="justify-content:center;"><span style="width:0"></span>Depoimentos</div>
+    <h2 class="sec-h">O que dizem quem usa</h2>
+  </div>
+
+  <div class="dep-grid reveal">
+    <div class="dep-card">
+      <div class="dep-stars">★★★★★</div>
+      <p class="dep-text">"Em 3 meses usando o Zynflow eu finalmente entendi por que o dinheiro sumia. O Fundo de Meses Fracos mudou minha vida — passei um mês sem cliente e não entrei no vermelho pela primeira vez."</p>
+      <div class="dep-author">
+        <div class="dep-avatar">CM</div>
+        <div>
+          <div class="dep-name">Carlos M.</div>
+          <div class="dep-role">Designer freelancer · São Paulo, SP</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dep-card">
+      <div class="dep-stars">★★★★★</div>
+      <p class="dep-text">"Tentei Mobills, tentei planilha, tentei de tudo. Nada funcionava porque nenhum era feito para autônomo. O Zynflow foi o único que entendeu que minha renda é variável e me deu um método de verdade."</p>
+      <div class="dep-author">
+        <div class="dep-avatar">AP</div>
+        <div>
+          <div class="dep-name">Ana P.</div>
+          <div class="dep-role">Consultora de marketing · Curitiba, PR</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dep-card">
+      <div class="dep-stars">★★★★★</div>
+      <p class="dep-text">"O teto semanal é genial. Antes eu ia gastando e só descobria no fim do mês que tinha estourado. Agora o app me avisa quando estou chegando no limite — antes de acontecer o estrago."</p>
+      <div class="dep-author">
+        <div class="dep-avatar">RB</div>
+        <div>
+          <div class="dep-name">Rafael B.</div>
+          <div class="dep-role">Desenvolvedor autônomo · Belo Horizonte, MG</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLANO -->
+<section id="plano">
+  <div class="reveal" style="text-align:center; max-width:640px; margin: 0 auto 56px;">
+    <div class="sec-label" style="justify-content:center;"><span style="width:0"></span>Plano</div>
+    <h2 class="sec-h">Simples. Sem pegadinha.</h2>
+  </div>
+
+  <div class="plano-box reveal">
+    <span class="plano-badge">Zynflow Pro</span>
+    <div class="plano-price">R$ 19<span>,90/mês</span></div>
+    <div class="plano-trial">✓ 30 dias completamente grátis · Sem cartão</div>
+
+    <ul class="plano-items">
+      <li>Dashboard com Método 3 Passos completo</li>
+      <li>Teto semanal calculado automaticamente</li>
+      <li>Fundo de Meses Fracos — exclusivo autônomo</li>
+      <li>Contas, receitas e despesas ilimitadas</li>
+      <li>Metas financeiras com aportes</li>
+      <li>Checklist semanal interativo</li>
+      <li>Histórico anual com gráficos</li>
+      <li>Perspectiva financeira personalizada</li>
+      <li>Suporte por WhatsApp</li>
+    </ul>
+
+    <button class="btn-plano" onclick="window.location.href='/auth/cadastro'">
+      Começar 30 dias grátis →
+    </button>
+    <p class="plano-fine">Depois do trial, R$ 19,90/mês. Cancele quando quiser, sem multa.</p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="reveal" style="text-align:center; max-width:640px; margin: 0 auto 56px;">
+    <div class="sec-label" style="justify-content:center;"><span style="width:0"></span>Dúvidas frequentes</div>
+    <h2 class="sec-h">Respondemos tudo</h2>
+  </div>
+
+  <div class="faq-wrap reveal">
+    <div class="faq-item">
+      <div class="faq-q">Preciso de cartão de crédito para começar o trial? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Não. Os 30 dias de trial são completamente gratuitos e não exigem nenhum dado de pagamento. Você só vai inserir um cartão se decidir continuar após o período grátis.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">O Zynflow é diferente dos outros apps de finanças? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Sim. Todos os outros apps foram feitos para quem tem salário fixo. O Zynflow foi construído do zero para autônomo com renda variável. O Método 3 Passos, o Fundo de Meses Fracos e o teto semanal automático não existem em nenhum outro app.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">E se eu não gostar? Posso cancelar? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Pode cancelar quando quiser, sem burocracia e sem multa. Dentro do trial, você cancela e não paga nada. Depois do trial, se cancelar, o acesso continua até o fim do período pago.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Funciona para qualquer tipo de autônomo? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Sim. Freelancer, MEI, consultor, designer, desenvolvedor, profissional liberal, prestador de serviços — qualquer autônomo que tem renda variável vai se beneficiar do Zynflow.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Meus dados financeiros estão seguros? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Sim. Os dados ficam armazenados no Supabase com criptografia e isolamento por usuário (Row Level Security). Nenhum funcionário ou terceiro tem acesso aos seus lançamentos financeiros.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Consigo usar no celular? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Sim. O Zynflow é um PWA — funciona em qualquer navegador, incluindo mobile. Você pode instalá-lo na tela inicial do seu celular e usá-lo como um app nativo, sem precisar baixar nada.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">O app conecta com meu banco automaticamente? <span class="faq-icon">+</span></div>
+      <div class="faq-a">Ainda não. Os lançamentos são manuais — e isso é intencional. Pesquisas mostram que quem lança manualmente tem muito mais consciência dos gastos e cria o hábito mais facilmente. A integração automática com bancos está no nosso roadmap.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section id="cta-final">
+  <div class="cta-box reveal">
+    <h2 class="sec-h">Chega de ficar no sufoco.<br/>Comece hoje.</h2>
+    <p class="cta-final-sub">30 dias grátis. Sem cartão. Sem risco. Só você e o controle do seu dinheiro.</p>
+    <div class="cta-final-form">
+      <input type="email" class="hero-input" placeholder="Digite seu melhor e-mail" id="cta-email" style="background:#07080F;" />
+      <button class="btn-hero" onclick="irParaCadastroFinal()">Começar agora →</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <a href="#" class="footer-logo">
+    <div class="nav-logo-z">Z</div>
+    <span class="nav-logo-name">Zynflow</span>
+  </a>
+  <div class="footer-links">
+    <a href="/auth/cadastro">Criar conta</a>
+    <a href="/auth/login">Entrar</a>
+    <a href="https://zyncompany.vercel.app" target="_blank">Zyncompany</a>
+    <a href="#">Termos de Uso</a>
+    <a href="#">Privacidade</a>
+  </div>
+  <span class="footer-copy">© 2026 Zynflow · Feito no Brasil 🇧🇷</span>
+</footer>
+
+<script>
+  // Nav scroll
+  const nav = document.getElementById('nav')
+  window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 20))
+
+  // Reveal
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); observer.unobserve(e.target) } })
+  }, { threshold: 0.08 })
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
+
+  // FAQ
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.querySelector('.faq-q').addEventListener('click', () => {
+      const isOpen = item.classList.contains('open')
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'))
+      if (!isOpen) item.classList.add('open')
+    })
+  })
+
+  // CTA com email
+  function irParaCadastro() {
+    const email = document.getElementById('hero-email').value.trim()
+    const url = email ? `/auth/cadastro?email=${encodeURIComponent(email)}` : '/auth/cadastro'
+    window.location.href = url
+  }
+
+  function irParaCadastroFinal() {
+    const email = document.getElementById('cta-email').value.trim()
+    const url = email ? `/auth/cadastro?email=${encodeURIComponent(email)}` : '/auth/cadastro'
+    window.location.href = url
+  }
+
+  // Enter no input
+  document.getElementById('hero-email').addEventListener('keydown', e => { if (e.key === 'Enter') irParaCadastro() })
+  document.getElementById('cta-email').addEventListener('keydown', e => { if (e.key === 'Enter') irParaCadastroFinal() })
+</script>
+
+</body>
+</html>
