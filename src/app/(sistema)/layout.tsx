@@ -22,6 +22,7 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
   const router   = useRouter()
   const pathname = usePathname()
   const [nomeUsuario, setNomeUsuario] = useState('')
+  const [diasTrial, setDiasTrial]     = useState<number | null>(null)
   const mes = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
     .replace(/^\w/, c => c.toUpperCase())
 
@@ -32,14 +33,31 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
 
       const { data } = await supabase
         .from('usuarios_flow')
-        .select('nome, setup_concluido')
+        .select('nome, setup_concluido, status, trial_ends_at')
         .eq('user_id', user.id)
         .single()
 
-      if (!data?.setup_concluido && pathname !== '/setup') {
+      if (!data) { router.push('/auth/login'); return }
+
+      if (!data.setup_concluido && pathname !== '/setup') {
         router.push('/setup'); return
       }
-      if (data?.nome) setNomeUsuario(data.nome)
+
+      const statusBloqueado = ['cancelado', 'inadimplente']
+      const trialExpirado = data.trial_ends_at
+        ? new Date(data.trial_ends_at) < new Date()
+        : false
+
+      if ((statusBloqueado.includes(data.status) || (data.status === 'trial' && trialExpirado)) && pathname !== '/setup') {
+        router.push('/assinar'); return
+      }
+
+      if (data.status === 'trial' && data.trial_ends_at) {
+        const diff = Math.ceil((new Date(data.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        setDiasTrial(diff)
+      }
+
+      if (data.nome) setNomeUsuario(data.nome)
     }
     verificar()
   }, [router, pathname])
@@ -55,6 +73,24 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' as const, minHeight: '100vh', background: '#07080F', fontFamily: 'system-ui, sans-serif' }}>
+
+      {/* Banner trial */}
+      {diasTrial !== null && diasTrial <= 7 && (
+        <div style={{
+          background: diasTrial <= 2 ? 'rgba(239,68,68,0.15)' : 'rgba(79,70,229,0.15)',
+          borderBottom: `1px solid ${diasTrial <= 2 ? 'rgba(239,68,68,0.3)' : 'rgba(79,70,229,0.3)'}`,
+          padding: '8px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 13,
+        }}>
+          <span style={{ color: diasTrial <= 2 ? '#FCA5A5' : '#818CF8' }}>
+            {diasTrial <= 0 ? '⚠️ Seu trial expirou hoje!' : `⏰ Seu trial gratuito termina em ${diasTrial} dia${diasTrial !== 1 ? 's' : ''}.`}
+          </span>
+          <a href="/assinar" style={{ color: '#fff', fontWeight: 700, textDecoration: 'none', background: diasTrial <= 2 ? '#ef4444' : '#4F46E5', padding: '4px 14px', borderRadius: 100, fontSize: 12 }}>
+            Assinar agora →
+          </a>
+        </div>
+      )}
+
+      {/* TOPBAR */}
       <div style={{ height: 56, background: '#0D0F1A', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', flexShrink: 0, position: 'sticky' as const, top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>Z</div>
@@ -70,6 +106,7 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
       </div>
 
       <div style={{ display: 'flex', flex: 1 }}>
+        {/* SIDEBAR */}
         <div style={{ width: 200, background: '#0D0F1A', borderRight: '1px solid rgba(255,255,255,0.07)', padding: '16px 0', flexShrink: 0 }}>
           {MENU.map(grupo => (
             <div key={grupo.label} style={{ marginBottom: 8 }}>
@@ -85,7 +122,19 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
               })}
             </div>
           ))}
+
+          {diasTrial !== null && (
+            <div style={{ margin: '16px 12px 0', padding: '12px', background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 10 }}>
+              <div style={{ fontSize: 11, color: '#818CF8', fontWeight: 600, marginBottom: 6 }}>
+                {diasTrial > 0 ? `${diasTrial} dias de trial` : 'Trial encerrado'}
+              </div>
+              <a href="/assinar" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#fff', background: '#4F46E5', textDecoration: 'none', padding: '7px 0', borderRadius: 7, textAlign: 'center' as const }}>
+                Assinar Pro →
+              </a>
+            </div>
+          )}
         </div>
+
         <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
           {children}
         </div>
