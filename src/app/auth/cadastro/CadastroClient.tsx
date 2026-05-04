@@ -3,6 +3,20 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+function traduzirErro(erro: string): string {
+  if (erro.includes('already been registered') || erro.includes('already registered'))
+    return 'Este e-mail já está cadastrado. Tente fazer login.'
+  if (erro.includes('invalid email') || erro.includes('Invalid email'))
+    return 'E-mail inválido. Verifique e tente novamente.'
+  if (erro.includes('Password should be at least'))
+    return 'A senha deve ter pelo menos 6 caracteres.'
+  if (erro.includes('Unable to validate email address'))
+    return 'Não foi possível validar o e-mail. Verifique e tente novamente.'
+  if (erro.includes('signup is disabled'))
+    return 'Cadastros temporariamente desativados. Tente novamente mais tarde.'
+  return erro
+}
+
 export default function CadastroClient() {
   const router = useRouter()
   const [nome, setNome] = useState('')
@@ -14,7 +28,7 @@ export default function CadastroClient() {
   async function handleCadastro() {
     setErro('')
     if (!nome || !email || !senha) { setErro('Preencha todos os campos.'); return }
-    if (senha.length < 6) { setErro('Senha deve ter ao menos 6 caracteres.'); return }
+    if (senha.length < 6) { setErro('A senha deve ter pelo menos 6 caracteres.'); return }
     setLoading(true)
 
     const res = await fetch('/api/cadastro', {
@@ -24,7 +38,11 @@ export default function CadastroClient() {
     })
 
     const data = await res.json()
-    if (!res.ok) { setErro(data.error || 'Erro ao criar conta.'); setLoading(false); return }
+    if (!res.ok) {
+      setErro(traduzirErro(data.error || 'Erro ao criar conta.'))
+      setLoading(false)
+      return
+    }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
     if (error) { router.push('/auth/login'); return }
@@ -40,19 +58,17 @@ export default function CadastroClient() {
     }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
 
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div style={{ textAlign: 'center' as const, marginBottom: 40 }}>
           <div style={{
-            width: 52, height: 52, borderRadius: 14,
-            background: '#4F46E5',
+            width: 52, height: 52, borderRadius: 14, background: '#4F46E5',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px',
-            fontSize: 24, fontWeight: 700, color: '#fff',
+            margin: '0 auto 16px', fontSize: 24, fontWeight: 700, color: '#fff',
           }}>Z</div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
             Zynflow
           </h1>
           <p style={{ fontSize: 14, color: '#6B7280', marginTop: 6 }}>
-            7 dias grátis · Sem cartão de crédito
+            30 dias grátis · Sem cartão de crédito
           </p>
         </div>
 
@@ -81,7 +97,7 @@ export default function CadastroClient() {
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 8, padding: '11px 14px',
                   fontSize: 14, color: '#fff', outline: 'none',
-                  boxSizing: 'border-box',
+                  boxSizing: 'border-box' as const,
                 }}
               />
             </div>
@@ -99,17 +115,16 @@ export default function CadastroClient() {
             onClick={handleCadastro}
             disabled={loading}
             style={{
-              width: '100%', background: '#4F46E5',
-              border: 'none', borderRadius: 10,
-              padding: '13px', fontSize: 15, fontWeight: 600,
-              color: '#fff', cursor: loading ? 'not-allowed' : 'pointer',
+              width: '100%', background: '#4F46E5', border: 'none', borderRadius: 10,
+              padding: '13px', fontSize: 15, fontWeight: 600, color: '#fff',
+              cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.7 : 1, marginTop: 8,
             }}
           >
             {loading ? 'Criando conta...' : 'Criar conta grátis →'}
           </button>
 
-          <p style={{ textAlign: 'center', fontSize: 13, color: '#6B7280', marginTop: 20 }}>
+          <p style={{ textAlign: 'center' as const, fontSize: 13, color: '#6B7280', marginTop: 20 }}>
             Já tem conta?{' '}
             <a href="/auth/login" style={{ color: '#818CF8', textDecoration: 'none', fontWeight: 500 }}>
               Entrar
