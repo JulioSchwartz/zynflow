@@ -11,28 +11,81 @@ const supabaseAdmin = () => createClient(
 
 export async function POST(req: NextRequest) {
   const { email, password, nome } = await req.json()
-
   const sb = supabaseAdmin()
-
-  // Criar usuário no auth
-  const { data: authData, error: authError } = await sb.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
-
-  if (authError || !authData.user) {
-    return NextResponse.json({ error: authError?.message || 'Erro ao criar usuário' }, { status: 400 })
-  }
-
-  const userId = authData.user.id
 
   // Trial de 30 dias
   const trialEndsAt = new Date()
   trialEndsAt.setDate(trialEndsAt.getDate() + 30)
   trialEndsAt.setHours(12, 0, 0, 0)
 
-  // Criar perfil
+  let userId: string
+
+  // 1. Tentar criar usuário no auth
+  const { data: authData, error: authError } = await sb.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  })
+
+  if (authError) {
+    // Email já existe — buscar o usuário existente
+    if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+
+      // Verificar se a senha está correta tentando logar
+      const { data: signInData, error: signInError } = await sb.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError || !signInData.user) {
+        // Senha errada — email pertence a outra conta
+        return NextResponse.json({
+          error: 'Este e-mail já está cadastrado em outra plataforma Zyncompany. Use a mesma senha que você criou lá, ou faça login diretamente.'
+        }, { status: 400 })
+      }
+
+      userId = signInData.user.id
+
+      // Verificar se já tem perfil no Zynflow
+      const { data: perfilExistente } = await sb
+        .from('usuarios_flow')
+        .select('id, status')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (perfilExistente) {
+        // Já tem perfil — só retorna ok para o front fazer login
+        return NextResponse.json({ ok: true, userId, jaExistia: true })
+      }
+
+      // Não tem perfil — cria agora (usuário de outra plataforma entrando no Zynflow)
+      await sb.from('usuarios_flow').insert({
+        user_id:         userId,
+        email,
+        nome:            nome || email.split('@')[0],
+        plano:           'trial',
+        status:          'trial',
+        trial_ends_at:   trialEndsAt.toISOString(),
+        setup_concluido: false,
+      })
+
+      // Enviar email de boas-vindas
+      await enviarEmailBoasVindas(email, nome, trialEndsAt)
+
+      return NextResponse.json({ ok: true, userId })
+    }
+
+    // Outro erro do auth
+    return NextResponse.json({ error: authError.message }, { status: 400 })
+  }
+
+  if (!authData.user) {
+    return NextResponse.json({ error: 'Erro ao criar usuário.' }, { status: 400 })
+  }
+
+  userId = authData.user.id
+
+  // 2. Criar perfil normalmente
   await sb.from('usuarios_flow').insert({
     user_id:         userId,
     email,
@@ -43,7 +96,13 @@ export async function POST(req: NextRequest) {
     setup_concluido: false,
   })
 
-  // Email de boas-vindas
+  // 3. Enviar email de boas-vindas
+  await enviarEmailBoasVindas(email, nome, trialEndsAt)
+
+  return NextResponse.json({ ok: true, userId })
+}
+
+async function enviarEmailBoasVindas(email: string, nome: string, trialEndsAt: Date) {
   const primeiroNome = (nome || email.split('@')[0]).split(' ')[0]
   const dataExpiracao = trialEndsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zynflow.app.br'
@@ -96,41 +155,32 @@ export async function POST(req: NextRequest) {
     <!-- O que fazer primeiro -->
     <p style="margin:0 0 16px;font-size:16px;font-weight:700;color:#0F172A;">📋 O que fazer primeiro:</p>
 
-    <!-- Passo 1 -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
       <tr>
-        <td width="46" valign="top">
-          <div style="width:36px;height:36px;background:#4F46E5;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">1</div>
-        </td>
+        <td width="46" valign="top"><div style="width:36px;height:36px;background:#4F46E5;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">1</div></td>
         <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;">
           <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0F172A;">Configure seu perfil financeiro</p>
-          <p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">No primeiro acesso, você preenche sua renda, despesas e objetivo. Leva menos de 2 minutos e o sistema já personaliza tudo para você.</p>
+          <p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">No primeiro acesso, preencha sua renda, despesas e objetivo. Leva menos de 2 minutos.</p>
         </td>
       </tr>
     </table>
 
-    <!-- Passo 2 -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
       <tr>
-        <td width="46" valign="top">
-          <div style="width:36px;height:36px;background:#4F46E5;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">2</div>
-        </td>
+        <td width="46" valign="top"><div style="width:36px;height:36px;background:#4F46E5;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">2</div></td>
         <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;">
           <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0F172A;">Lance sua renda do mês — P1</p>
-          <p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">Acesse <strong>Receitas</strong> e registre o que entrou ou vai entrar esse mês. Use sempre o valor conservador — o menor que você espera receber.</p>
+          <p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">Acesse <strong>Receitas</strong> e registre o que entrou esse mês. Use sempre o valor conservador.</p>
         </td>
       </tr>
     </table>
 
-    <!-- Passo 3 -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
       <tr>
-        <td width="46" valign="top">
-          <div style="width:36px;height:36px;background:#4F46E5;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">3</div>
-        </td>
+        <td width="46" valign="top"><div style="width:36px;height:36px;background:#4F46E5;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">3</div></td>
         <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;">
           <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0F172A;">Ative seu Fundo de Meses Fracos — P3</p>
-          <p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">Acesse <strong>Reservas</strong> e conheça o Fundo de Meses Fracos — o diferencial exclusivo do Zynflow que protege você quando a renda cai.</p>
+          <p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">Acesse <strong>Reservas</strong> — o diferencial exclusivo que protege você quando a renda cai.</p>
         </td>
       </tr>
     </table>
@@ -187,6 +237,4 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error('Erro ao enviar email boas-vindas:', e)
   }
-
-  return NextResponse.json({ ok: true, userId })
 }

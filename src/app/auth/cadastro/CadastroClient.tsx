@@ -38,16 +38,31 @@ export default function CadastroClient() {
     })
 
     const data = await res.json()
+
     if (!res.ok) {
       setErro(traduzirErro(data.error || 'Erro ao criar conta.'))
       setLoading(false)
       return
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
-    if (error) { router.push('/auth/login'); return }
+    // Fazer login com as credenciais
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password: senha,
+    })
 
-    router.push('/dashboard')
+    if (loginError) {
+      router.push('/auth/login')
+      return
+    }
+
+    // Se já existia perfil no Zynflow, vai direto pro dashboard
+    // Se é novo, vai pro setup
+    if (data.jaExistia) {
+      router.push('/dashboard')
+    } else {
+      router.push('/setup')
+    }
   }
 
   return (
