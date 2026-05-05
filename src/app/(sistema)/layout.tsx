@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+const MANUAL_URL = 'https://cpyvksnsfihybemvxvap.supabase.co/storage/v1/object/public/manuais/zynflow_manual.pdf'
+
 const MENU = [
   { label: 'Principal', items: [
     { href: '/dashboard',  icon: '◉', nome: 'Dashboard' },
@@ -133,6 +135,16 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
               </a>
             </div>
           )}
+
+          {/* MANUAL */}
+          <div style={{ margin: '12px 12px 0' }}>
+            <a href={MANUAL_URL} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', fontSize: 13, color: '#6B7280', textDecoration: 'none', fontWeight: 400 }}>
+              <span style={{ fontSize: 14, width: 16, textAlign: 'center' as const }}>&#128214;</span>
+              Manual
+            </a>
+          </div>
+
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
