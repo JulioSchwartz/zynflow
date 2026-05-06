@@ -25,8 +25,13 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname()
   const [nomeUsuario, setNomeUsuario] = useState('')
   const [diasTrial, setDiasTrial]     = useState<number | null>(null)
+  const [menuAberto, setMenuAberto]   = useState(false)
   const mes = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
     .replace(/^\w/, c => c.toUpperCase())
+
+  useEffect(() => {
+    setMenuAberto(false)
+  }, [pathname])
 
   useEffect(() => {
     async function verificar() {
@@ -74,7 +79,69 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
   if (pathname === '/setup') return <>{children}</>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' as const, minHeight: '100vh', background: '#07080F', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#07080F', fontFamily: 'system-ui, sans-serif' }}>
+
+      <style>{`
+        .zf-sidebar {
+          width: 200px;
+          background: #0D0F1A;
+          border-right: 1px solid rgba(255,255,255,0.07);
+          padding: 16px 0;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .zf-main {
+          flex: 1;
+          overflow: auto;
+          padding: 24px;
+        }
+        .zf-hamburger { display: none; }
+        .zf-overlay { display: none; }
+        .zf-topbar-nome { display: block; }
+
+        @media (max-width: 768px) {
+          .zf-hamburger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            flex-shrink: 0;
+          }
+          .zf-sidebar {
+            position: fixed;
+            top: 0;
+            left: -220px;
+            width: 220px;
+            height: 100vh;
+            z-index: 200;
+            transition: left 0.25s ease;
+            overflow-y: auto;
+            padding-top: 60px;
+          }
+          .zf-sidebar.aberto {
+            left: 0;
+          }
+          .zf-overlay {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 199;
+          }
+          .zf-main {
+            padding: 16px;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .zf-topbar-nome { display: none; }
+        }
+      `}</style>
 
       {/* Banner trial */}
       {diasTrial !== null && diasTrial <= 7 && (
@@ -84,7 +151,7 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
           padding: '8px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 13,
         }}>
           <span style={{ color: diasTrial <= 2 ? '#FCA5A5' : '#818CF8' }}>
-            {diasTrial <= 0 ? '⚠️ Seu trial expirou hoje!' : `⏰ Seu trial gratuito termina em ${diasTrial} dia${diasTrial !== 1 ? 's' : ''}.`}
+            {diasTrial <= 0 ? '⚠️ Seu trial expirou hoje!' : `⏰ Trial termina em ${diasTrial} dia${diasTrial !== 1 ? 's' : ''}.`}
           </span>
           <a href="/assinar" style={{ color: '#fff', fontWeight: 700, textDecoration: 'none', background: diasTrial <= 2 ? '#ef4444' : '#4F46E5', padding: '4px 14px', borderRadius: 100, fontSize: 12 }}>
             Assinar agora →
@@ -93,14 +160,21 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
       )}
 
       {/* TOPBAR */}
-      <div style={{ height: 56, background: '#0D0F1A', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', flexShrink: 0, position: 'sticky' as const, top: 0, zIndex: 50 }}>
+      <div style={{ height: 56, background: '#0D0F1A', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="zf-hamburger" onClick={() => setMenuAberto(v => !v)}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect y="3" width="18" height="2" rx="1" fill="#9CA3AF"/>
+              <rect y="8" width="18" height="2" rx="1" fill="#9CA3AF"/>
+              <rect y="13" width="18" height="2" rx="1" fill="#9CA3AF"/>
+            </svg>
+          </div>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>Z</div>
           <span style={{ fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em' }}>Zynflow</span>
         </div>
         <span style={{ fontSize: 12, color: '#6B7280', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', padding: '4px 12px', borderRadius: 100 }}>{mes}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: '#9CA3AF' }}>{nomeUsuario}</span>
+          <span className="zf-topbar-nome" style={{ fontSize: 13, color: '#9CA3AF' }}>{nomeUsuario}</span>
           <div onClick={sair} title="Sair" style={{ width: 32, height: 32, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
             {iniciais || 'Z'}
           </div>
@@ -108,16 +182,21 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
       </div>
 
       <div style={{ display: 'flex', flex: 1 }}>
+
+        {menuAberto && (
+          <div className="zf-overlay" onClick={() => setMenuAberto(false)} />
+        )}
+
         {/* SIDEBAR */}
-        <div style={{ width: 200, background: '#0D0F1A', borderRight: '1px solid rgba(255,255,255,0.07)', padding: '16px 0', flexShrink: 0 }}>
+        <div className={`zf-sidebar${menuAberto ? ' aberto' : ''}`}>
           {MENU.map(grupo => (
             <div key={grupo.label} style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#374151', padding: '0 16px', marginBottom: 4 }}>{grupo.label}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#374151', padding: '0 16px', marginBottom: 4 }}>{grupo.label}</div>
               {grupo.items.map(item => {
                 const ativo = pathname === item.href
                 return (
                   <a key={item.href} href={item.href} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', fontSize: 13, color: ativo ? '#818CF8' : '#6B7280', background: ativo ? 'rgba(79,70,229,0.1)' : 'transparent', borderRight: ativo ? '2px solid #4F46E5' : '2px solid transparent', textDecoration: 'none', fontWeight: ativo ? 500 : 400, transition: 'all 0.15s' }}>
-                    <span style={{ fontSize: 14, width: 16, textAlign: 'center' as const }}>{item.icon}</span>
+                    <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>{item.icon}</span>
                     {item.nome}
                   </a>
                 )
@@ -130,26 +209,26 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
               <div style={{ fontSize: 11, color: '#818CF8', fontWeight: 600, marginBottom: 6 }}>
                 {diasTrial > 0 ? `${diasTrial} dias de trial` : 'Trial encerrado'}
               </div>
-              <a href="/assinar" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#fff', background: '#4F46E5', textDecoration: 'none', padding: '7px 0', borderRadius: 7, textAlign: 'center' as const }}>
+              <a href="/assinar" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#fff', background: '#4F46E5', textDecoration: 'none', padding: '7px 0', borderRadius: 7, textAlign: 'center' }}>
                 Assinar Pro →
               </a>
             </div>
           )}
 
-          {/* MANUAL */}
           <div style={{ margin: '12px 12px 0' }}>
             <a href={MANUAL_URL} target="_blank" rel="noopener noreferrer"
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', fontSize: 13, color: '#6B7280', textDecoration: 'none', fontWeight: 400 }}>
-              <span style={{ fontSize: 14, width: 16, textAlign: 'center' as const }}>&#128214;</span>
+              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#128214;</span>
               Manual
             </a>
           </div>
-
         </div>
 
-        <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+        {/* CONTEÚDO */}
+        <div className="zf-main">
           {children}
         </div>
+
       </div>
     </div>
   )
