@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 const INDIGO = '#4F46E5'
 const VERDE  = '#22c55e'
 const VERM   = '#ef4444'
-const AMBER  = '#f59e0b'
 const MESES  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
@@ -16,6 +15,7 @@ interface MesData {
   receita: number
   fixas: number
   variaveis: number
+  diarias: number
   saldo: number
 }
 
@@ -29,18 +29,20 @@ export default function HistoricoClient() {
 
   async function carregar(uid: string, ano: number) {
     setLoading(true)
-    const [rec, fix, vari] = await Promise.all([
+    const [rec, fix, vari, diar] = await Promise.all([
       supabase.from('receitas_flow').select('mes, valor_recebido').eq('user_id', uid).eq('ano', ano),
-      supabase.from('despesas_fixas_flow').select('mes, valor_mensal').eq('user_id', uid).eq('ano', ano),
+      supabase.from('despesas_fixas_flow').select('mes, valor_mensal').eq('user_id', uid).eq('ano', ano).eq('tipo', 'fixa'),
+      supabase.from('despesas_fixas_flow').select('mes, valor_mensal').eq('user_id', uid).eq('ano', ano).eq('tipo', 'variavel'),
       supabase.from('despesas_variaveis_flow').select('mes, valor').eq('user_id', uid).eq('ano', ano),
     ])
 
     const meses: MesData[] = Array.from({ length: 12 }, (_, i) => {
       const m = i + 1
-      const receita  = (rec.data  || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor_recebido, 0)
-      const fixas    = (fix.data  || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor_mensal, 0)
-      const variaveis = (vari.data || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor, 0)
-      return { mes: m, receita, fixas, variaveis, saldo: receita - fixas - variaveis }
+      const receita   = (rec.data  || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor_recebido, 0)
+      const fixas     = (fix.data  || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor_mensal, 0)
+      const variaveis = (vari.data || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor_mensal, 0)
+      const diarias   = (diar.data || []).filter((r: any) => r.mes === m).reduce((s: number, r: any) => s + r.valor, 0)
+      return { mes: m, receita, fixas, variaveis, diarias, saldo: receita - fixas - variaveis - diarias }
     })
 
     setDados(meses)
@@ -61,7 +63,8 @@ export default function HistoricoClient() {
 
   const totalReceita  = dados.reduce((s, d) => s + d.receita, 0)
   const totalFixas    = dados.reduce((s, d) => s + d.fixas, 0)
-  const totalVar      = dados.reduce((s, d) => s + d.variaveis, 0)
+  const totalVariaveis = dados.reduce((s, d) => s + d.variaveis, 0)
+  const totalDiarias  = dados.reduce((s, d) => s + d.diarias, 0)
   const totalSaldo    = dados.reduce((s, d) => s + d.saldo, 0)
 
   const mesAtual = dados.find(d => d.mes === mesSelecionado)
@@ -69,8 +72,8 @@ export default function HistoricoClient() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
       <style>{`
-        .hist-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
-        .hist-mes-detalhe { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+        .hist-kpis { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; margin-bottom: 24px; }
+        .hist-mes-detalhe { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; }
         .hist-tabela-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         @media (max-width: 768px) {
           .hist-kpis { grid-template-columns: repeat(2,1fr); }
@@ -89,17 +92,18 @@ export default function HistoricoClient() {
         </select>
       </div>
 
-      {/* KPIs anuais */}
+      {/* KPIs anuais — 5 colunas */}
       <div className="hist-kpis">
         {[
-          { label: 'Receita total', val: totalReceita, cor: VERDE },
-          { label: 'Fixas total', val: totalFixas, cor: '#fff' },
-          { label: 'Variáveis total', val: totalVar, cor: VERM },
-          { label: 'Saldo acumulado', val: totalSaldo, cor: totalSaldo >= 0 ? VERDE : VERM },
+          { label: 'Receita total',    val: totalReceita,   cor: VERDE },
+          { label: 'Fixas total',      val: totalFixas,     cor: '#fff' },
+          { label: 'Variáveis total',  val: totalVariaveis, cor: '#f59e0b' },
+          { label: 'Diárias total',    val: totalDiarias,   cor: VERM },
+          { label: 'Saldo acumulado',  val: totalSaldo,     cor: totalSaldo >= 0 ? VERDE : VERM },
         ].map(k => (
           <div key={k.label} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 18px' }}>
             <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{k.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: k.cor }}>{fmt(k.val)}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: k.cor }}>{fmt(k.val)}</div>
           </div>
         ))}
       </div>
@@ -112,10 +116,11 @@ export default function HistoricoClient() {
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, paddingBottom: 24, position: 'relative' as const }}>
               <div style={{ position: 'absolute' as const, bottom: 24, left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.07)' }} />
               {dados.map(d => {
-                const maxVal = Math.max(...dados.map(x => Math.max(x.receita, x.fixas + x.variaveis)), 1)
+                const totalGastos = d.fixas + d.variaveis + d.diarias
+                const maxVal = Math.max(...dados.map(x => Math.max(x.receita, x.fixas + x.variaveis + x.diarias)), 1)
                 const pctRec  = d.receita > 0 ? Math.max((d.receita / maxVal) * 120, 6) : 0
-                const pctGast = (d.fixas + d.variaveis) > 0 ? Math.max(((d.fixas + d.variaveis) / maxVal) * 120, 6) : 0
-                const temDados = d.receita > 0 || d.fixas > 0 || d.variaveis > 0
+                const pctGast = totalGastos > 0 ? Math.max((totalGastos / maxVal) * 120, 6) : 0
+                const temDados = d.receita > 0 || totalGastos > 0
                 const isMes = d.mes === hoje.getMonth() + 1 && anoSel === hoje.getFullYear()
                 const selecionado = mesSelecionado === d.mes
                 return (
@@ -123,7 +128,7 @@ export default function HistoricoClient() {
                     style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'flex-end', height: '100%', cursor: 'pointer', opacity: mesSelecionado && !selecionado ? 0.4 : 1, transition: 'opacity 0.2s' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, width: '100%', justifyContent: 'center', marginBottom: 4 }}>
                       <div style={{ width: '42%', height: pctRec, minHeight: temDados && d.receita > 0 ? 6 : 0, background: VERDE, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease' }} />
-                      <div style={{ width: '42%', height: pctGast, minHeight: temDados && (d.fixas + d.variaveis) > 0 ? 6 : 0, background: VERM, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease' }} />
+                      <div style={{ width: '42%', height: pctGast, minHeight: temDados && totalGastos > 0 ? 6 : 0, background: VERM, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease' }} />
                     </div>
                     <span style={{ fontSize: 9, color: isMes ? '#818CF8' : selecionado ? '#fff' : '#4B5563', fontWeight: isMes || selecionado ? 700 : 400, whiteSpace: 'nowrap' as const }}>{MESES[d.mes - 1]}</span>
                   </div>
@@ -144,26 +149,27 @@ export default function HistoricoClient() {
               </div>
               <div className="hist-mes-detalhe">
                 {[
-                  { label: 'Receita', val: mesAtual.receita, cor: VERDE },
-                  { label: 'Fixas', val: mesAtual.fixas, cor: '#fff' },
-                  { label: 'Variáveis', val: mesAtual.variaveis, cor: VERM },
-                  { label: 'Saldo', val: mesAtual.saldo, cor: mesAtual.saldo >= 0 ? VERDE : VERM },
+                  { label: 'Receita',    val: mesAtual.receita,    cor: VERDE },
+                  { label: 'Fixas',      val: mesAtual.fixas,      cor: '#fff' },
+                  { label: 'Variáveis',  val: mesAtual.variaveis,  cor: '#f59e0b' },
+                  { label: 'Diárias',    val: mesAtual.diarias,    cor: VERM },
+                  { label: 'Saldo',      val: mesAtual.saldo,      cor: mesAtual.saldo >= 0 ? VERDE : VERM },
                 ].map(k => (
                   <div key={k.label}>
                     <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{k.label}</div>
-                    <div style={{ fontSize: 17, fontWeight: 600, color: k.cor }}>{fmt(k.val)}</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: k.cor }}>{fmt(k.val)}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Tabela com scroll horizontal no mobile */}
+          {/* Tabela */}
           <div className="hist-tabela-wrap" style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  {['Mês','Receita','Fixas','Variáveis','Saldo'].map(h => (
+                  {['Mês','Receita','Fixas','Variáveis','Diárias','Saldo'].map(h => (
                     <th key={h} style={{ padding: '12px 16px', textAlign: 'left' as const, fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase' as const, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -171,7 +177,7 @@ export default function HistoricoClient() {
               <tbody>
                 {dados.map((d, i) => {
                   const isAtual = d.mes === hoje.getMonth() + 1 && anoSel === hoje.getFullYear()
-                  const temDados = d.receita > 0 || d.fixas > 0 || d.variaveis > 0
+                  const temDados = d.receita > 0 || d.fixas > 0 || d.variaveis > 0 || d.diarias > 0
                   return (
                     <tr key={d.mes} style={{
                       borderBottom: i < 11 ? '1px solid rgba(255,255,255,0.04)' : 'none',
@@ -183,7 +189,8 @@ export default function HistoricoClient() {
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 14, color: d.receita > 0 ? VERDE : '#4B5563', fontWeight: 500, whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.receita) : '—'}</td>
                       <td style={{ padding: '12px 16px', fontSize: 14, color: d.fixas > 0 ? '#E5E7EB' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.fixas) : '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.variaveis > 0 ? VERM : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.variaveis) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.variaveis > 0 ? '#f59e0b' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.variaveis) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.diarias > 0 ? VERM : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.diarias) : '—'}</td>
                       <td style={{ padding: '12px 16px', fontSize: 14, color: d.saldo > 0 ? VERDE : d.saldo < 0 ? VERM : '#4B5563', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {temDados || isAtual ? fmt(d.saldo) : '—'}
                       </td>

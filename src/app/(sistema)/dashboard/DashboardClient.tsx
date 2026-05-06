@@ -31,10 +31,7 @@ function KPI({ label, valor, sub, cor }: { label: string; valor: string; sub?: s
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)',
-      borderRadius: 14, padding: '16px 18px',
-    }}>
+    <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', marginBottom: 14 }}>{title}</div>
       {children}
     </div>
@@ -51,6 +48,7 @@ export default function DashboardClient() {
   const [receitas,   setReceitas]     = useState<any[]>([])
   const [fixas,      setFixas]        = useState<any[]>([])
   const [variaveis,  setVariaveis]    = useState<any[]>([])
+  const [diarias,    setDiarias]      = useState<any[]>([])
   const [reservas,   setReservas]     = useState<any[]>([])
   const [metas,      setMetas]        = useState<any[]>([])
   const [contas,     setContas]       = useState<any[]>([])
@@ -62,10 +60,11 @@ export default function DashboardClient() {
       if (!user) return
       setUserId(user.id)
 
-      const [u, r, f, v, res, m, c] = await Promise.all([
+      const [u, r, f, v, d, res, m, c] = await Promise.all([
         supabase.from('usuarios_flow').select('nome').eq('user_id', user.id).single(),
         supabase.from('receitas_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
-        supabase.from('despesas_fixas_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
+        supabase.from('despesas_fixas_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano).eq('tipo', 'fixa'),
+        supabase.from('despesas_fixas_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano).eq('tipo', 'variavel'),
         supabase.from('despesas_variaveis_flow').select('*').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
         supabase.from('reservas_flow').select('*').eq('user_id', user.id),
         supabase.from('metas_flow').select('*').eq('user_id', user.id).eq('status', 'ativa').limit(4),
@@ -76,6 +75,7 @@ export default function DashboardClient() {
       setReceitas(r.data || [])
       setFixas(f.data || [])
       setVariaveis(v.data || [])
+      setDiarias(d.data || [])
       setReservas(res.data || [])
       setMetas(m.data || [])
       setContas(c.data || [])
@@ -87,32 +87,33 @@ export default function DashboardClient() {
   const totalRecebido  = receitas.reduce((s, r) => s + (r.valor_recebido || 0), 0)
   const totalPrevisto  = receitas.reduce((s, r) => s + (r.valor_previsto || 0), 0)
   const totalFixas     = fixas.reduce((s, f) => s + (f.valor_mensal || 0), 0)
-  const totalVar       = variaveis.reduce((s, v) => s + (v.valor || 0), 0)
-  const totalSaidas    = totalFixas + totalVar
+  const totalVariaveis = variaveis.reduce((s, v) => s + (v.valor_mensal || 0), 0)
+  const totalDiarias   = diarias.reduce((s, d) => s + (d.valor || 0), 0)
+  const totalSaidas    = totalFixas + totalVariaveis + totalDiarias
   const totalReservado = reservas.reduce((s, r) => s + (r.valor_acumulado || 0), 0)
   const saldoDisp      = totalRecebido - totalSaidas - totalReservado
 
   const receitaConsv   = totalPrevisto > 0 ? totalPrevisto : totalRecebido
   const tetoSemanal    = Math.round((receitaConsv / 4) * 0.3)
   const hoje           = new Date()
-  const varSemana      = variaveis
-    .filter(v => {
-      const d = new Date(v.data + 'T12:00:00')
-      return Math.ceil(d.getDate() / 7) === semanaDoMes
+  const diariasSemana  = diarias
+    .filter(d => {
+      const dt = new Date(d.data + 'T12:00:00')
+      return Math.ceil(dt.getDate() / 7) === semanaDoMes
     })
-    .reduce((s, v) => s + (v.valor || 0), 0)
-  const pctTeto        = tetoSemanal > 0 ? Math.round((varSemana / tetoSemanal) * 100) : 0
-  const restante       = tetoSemanal - varSemana
+    .reduce((s, d) => s + (d.valor || 0), 0)
+  const pctTeto        = tetoSemanal > 0 ? Math.round((diariasSemana / tetoSemanal) * 100) : 0
+  const restante       = tetoSemanal - diariasSemana
 
   const contasComSaldo = contas.map(c => {
     const entradasConta = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
-    const saidasConta   = variaveis.filter(v => v.conta_id === c.id).reduce((s, v) => s + (v.valor || 0), 0)
+    const saidasConta   = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
     return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasConta }
   })
   const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
 
   const catMap: Record<string, number> = {}
-  variaveis.forEach(v => { catMap[v.categoria] = (catMap[v.categoria] || 0) + v.valor })
+  diarias.forEach(d => { catMap[d.categoria] = (catMap[d.categoria] || 0) + d.valor })
   const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
   const diaSemana = hoje.toLocaleDateString('pt-BR', { weekday: 'long' })
@@ -171,8 +172,8 @@ export default function DashboardClient() {
           <span>{pctTeto >= 90 ? '🚨' : '⚠️'}</span>
           <span>
             {pctTeto >= 100
-              ? `Teto semanal de variáveis ultrapassado! Você gastou ${fmt(varSemana)} de ${fmt(tetoSemanal)}.`
-              : `Você está ${pctTeto}% do teto semanal de variáveis. Restam ${fmt(restante)} esta semana.`
+              ? `Teto semanal de diárias ultrapassado! Você gastou ${fmt(diariasSemana)} de ${fmt(tetoSemanal)}.`
+              : `Você está ${pctTeto}% do teto semanal de diárias. Restam ${fmt(restante)} esta semana.`
             }
           </span>
         </div>
@@ -181,7 +182,7 @@ export default function DashboardClient() {
       {/* KPIs */}
       <div className="db-kpis">
         <KPI label="Receita recebida"   valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
-        <KPI label="Total de saídas"    valor={fmt(totalSaidas)}    sub="Fixas + variáveis"                  cor={VERM}  />
+        <KPI label="Total de saídas"    valor={fmt(totalSaidas)}    sub="Fixas + variáveis + diárias"        cor={VERM}  />
         <KPI label="Reservado (P3)"     valor={fmt(totalReservado)} sub="Emergência + meses fracos"          cor={INDIGO}/>
         <KPI label="Saldo disponível"   valor={fmt(saldoDisp)}      sub="Após reservas"                      cor={saldoDisp >= 0 ? '#fff' : VERM} />
       </div>
@@ -192,17 +193,20 @@ export default function DashboardClient() {
         <Card title="Método 3 Passos — este mês">
           {[
             {
-              num: 'P1', nome: 'Receitas', desc: `${receitas.length} fonte${receitas.length !== 1 ? 's' : ''} lançada${receitas.length !== 1 ? 's' : ''}`,
+              num: 'P1', nome: 'Receitas',
+              desc: `${receitas.length} fonte${receitas.length !== 1 ? 's' : ''} lançada${receitas.length !== 1 ? 's' : ''}`,
               pct: totalPrevisto > 0 ? Math.round((totalRecebido / totalPrevisto) * 100) : 0,
               cor: VERDE,
             },
             {
-              num: 'P2', nome: 'Gastos', desc: `Fixas ${fmt(totalFixas)} + var. ${fmt(totalVar)}`,
+              num: 'P2', nome: 'Gastos',
+              desc: `Fixas ${fmt(totalFixas)} + var. ${fmt(totalVariaveis)} + diárias ${fmt(totalDiarias)}`,
               pct: totalRecebido > 0 ? Math.round((totalSaidas / totalRecebido) * 100) : 0,
               cor: AMBER,
             },
             {
-              num: 'P3', nome: 'Reservas', desc: 'Emergência + meses fracos + invest.',
+              num: 'P3', nome: 'Reservas',
+              desc: 'Emergência + meses fracos + invest.',
               pct: totalRecebido > 0 ? Math.round((totalReservado / totalRecebido) * 100) : 0,
               cor: INDIGO,
             },
@@ -230,23 +234,23 @@ export default function DashboardClient() {
             marginTop: 12, padding: '12px', borderRadius: 10,
             background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)',
           }}>
-            <div style={{ fontSize: 11, color: '#9CA3AF' }}>Teto semanal de variáveis</div>
+            <div style={{ fontSize: 11, color: '#9CA3AF' }}>Teto semanal de diárias</div>
             <div style={{ fontSize: 20, fontWeight: 600, color: INDIGO, margin: '3px 0' }}>{fmt(tetoSemanal)}</div>
             <BarraProgresso pct={pctTeto} cor={pctTeto >= 90 ? VERM : pctTeto >= 60 ? AMBER : INDIGO} />
             <div style={{ fontSize: 11, color: '#6B7280' }}>
-              {fmt(varSemana)} gastos · {fmt(Math.max(restante, 0))} restantes esta semana
+              {fmt(diariasSemana)} gastos · {fmt(Math.max(restante, 0))} restantes esta semana
             </div>
           </div>
         </Card>
 
-        {/* Despesas fixas */}
+        {/* Despesas fixas — status (mostra fixas ordenadas por vencimento) */}
         <Card title="Despesas fixas — status">
           {fixas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhuma despesa fixa lançada</p>
               <a href="/despesas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar despesas fixas</a>
             </div>
-          ) : fixas.slice(0, 5).map(f => {
+          ) : [...fixas].sort((a, b) => (a.dia_vencimento || 99) - (b.dia_vencimento || 99)).slice(0, 5).map(f => {
             const status = f.pago ? 'pago' : f.dia_vencimento && f.dia_vencimento <= new Date().getDate() ? 'vencida' : 'pendente'
             const corPill = status === 'pago' ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80' }
                           : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)', txt: '#FCA5A5' }
@@ -254,8 +258,7 @@ export default function DashboardClient() {
             return (
               <div key={f.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                fontSize: 13,
+                padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
               }}>
                 <div>
                   <div style={{ color: '#E5E7EB', fontWeight: 500 }}>{f.descricao}</div>
@@ -263,10 +266,7 @@ export default function DashboardClient() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(f.valor_mensal)}</div>
-                  <span style={{
-                    fontSize: 10, fontWeight: 600, padding: '2px 8px',
-                    borderRadius: 100, background: corPill.bg, color: corPill.txt,
-                  }}>{status}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: corPill.bg, color: corPill.txt }}>{status}</span>
                 </div>
               </div>
             )
@@ -282,16 +282,16 @@ export default function DashboardClient() {
       {/* Grid inferior */}
       <div className="db-grid-bottom">
 
-        {/* Variáveis por categoria */}
-        <Card title="Variáveis por categoria">
+        {/* Diárias por categoria */}
+        <Card title="Diárias por categoria">
           {cats.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhum gasto variável</p>
-              <a href="/despesas/novo" style={{ fontSize: 13, color: '#818CF8' }}>+ Lançar gasto</a>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhum gasto diário</p>
+              <a href="/despesas" style={{ fontSize: 13, color: '#818CF8' }}>+ Lançar gasto</a>
             </div>
           ) : cats.map(([cat, val], i) => {
             const cores = [AMBER, '#8b5cf6', '#06b6d4', '#64748b', '#ec4899']
-            const pct = totalVar > 0 ? Math.round((val / totalVar) * 100) : 0
+            const pct = totalDiarias > 0 ? Math.round((val / totalDiarias) * 100) : 0
             return (
               <div key={cat} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -363,10 +363,7 @@ export default function DashboardClient() {
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{c.tipo}</div>
                 </div>
               </div>
-              <div style={{
-                fontSize: 13, fontWeight: 500,
-                color: c.saldo >= 0 ? VERDE : VERM,
-              }}>{fmt(c.saldo)}</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: c.saldo >= 0 ? VERDE : VERM }}>{fmt(c.saldo)}</div>
             </div>
           ))}
           {contasComSaldo.length > 0 && (
