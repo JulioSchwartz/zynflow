@@ -15,6 +15,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  turbopack: {},
   async rewrites() {
     return [
       {
