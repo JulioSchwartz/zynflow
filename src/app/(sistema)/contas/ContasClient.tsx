@@ -93,6 +93,31 @@ export default function ContasClient() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      <style>{`
+        .contas-card-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .contas-card-right {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          flex-shrink: 0;
+        }
+        @media (max-width: 768px) {
+          .contas-card-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .contas-card-right {
+            width: 100%;
+            justify-content: space-between;
+          }
+        }
+      `}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>Contas bancárias</h1>
@@ -138,38 +163,39 @@ export default function ContasClient() {
             <div key={c.id} style={{
               background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)',
               borderRadius: 12, padding: '16px 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 10,
-                  background: `${c.cor}20`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 16, fontWeight: 700, color: c.cor,
-                }}>
-                  {c.nome.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>{c.nome}</div>
-                  <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-                    {c.banco ? `${c.banco} · ` : ''}{c.tipo}
+              <div className="contas-card-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 10,
+                    background: `${c.cor}20`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 16, fontWeight: 700, color: c.cor, flexShrink: 0,
+                  }}>
+                    {c.nome.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>{c.nome}</div>
+                    <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                      {c.banco ? `${c.banco} · ` : ''}{c.tipo}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                <div style={{ textAlign: 'right' as const }}>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>{fmt(c.saldo_inicial)}</div>
-                  <div style={{ fontSize: 11, color: '#6B7280' }}>saldo inicial</div>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => abrirEditar(c)} style={{
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer',
-                  }}>Editar</button>
-                  <button onClick={() => excluir(c.id)} style={{
-                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
-                    borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer',
-                  }}>Excluir</button>
+                <div className="contas-card-right">
+                  <div style={{ textAlign: 'right' as const }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>{fmt(c.saldo_inicial)}</div>
+                    <div style={{ fontSize: 11, color: '#6B7280' }}>saldo inicial</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => abrirEditar(c)} style={{
+                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer',
+                    }}>Editar</button>
+                    <button onClick={() => excluir(c.id)} style={{
+                      background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                      borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer',
+                    }}>Excluir</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -181,30 +207,26 @@ export default function ContasClient() {
       {modal && (
         <div style={{
           position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px',
         }} onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div style={{
             background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16, padding: 32, width: '100%', maxWidth: 480,
+            borderRadius: 16, padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto',
           }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 24 }}>
               {editando ? 'Editar conta' : 'Nova conta'}
             </h2>
 
-            {[
-              { label: 'Nome da conta *', key: 'nome', type: 'text', placeholder: 'Ex: Nubank, Carteira, Poupança' },
-            ].map(f => (
-              <div key={f.key} style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>{f.label}</label>
-                <input
-                  type={f.type}
-                  value={(form as any)[f.key]}
-                  onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }}
-                />
-              </div>
-            ))}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Nome da conta *</label>
+              <input
+                type="text"
+                value={form.nome}
+                onChange={e => setForm(p => ({ ...p, nome: e.target.value }))}
+                placeholder="Ex: Nubank, Carteira, Poupança"
+                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }}
+              />
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
               <div>
@@ -236,7 +258,7 @@ export default function ContasClient() {
 
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 8 }}>Cor</label>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {CORES.map(cor => (
                   <div key={cor} onClick={() => setForm(p => ({ ...p, cor }))}
                     style={{ width: 28, height: 28, borderRadius: '50%', background: cor, cursor: 'pointer',

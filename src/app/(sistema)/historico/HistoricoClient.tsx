@@ -63,12 +63,21 @@ export default function HistoricoClient() {
   const totalFixas    = dados.reduce((s, d) => s + d.fixas, 0)
   const totalVar      = dados.reduce((s, d) => s + d.variaveis, 0)
   const totalSaldo    = dados.reduce((s, d) => s + d.saldo, 0)
-  const maxReceita    = Math.max(...dados.map(d => d.receita), 1)
 
   const mesAtual = dados.find(d => d.mes === mesSelecionado)
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <style>{`
+        .hist-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+        .hist-mes-detalhe { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+        .hist-tabela-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        @media (max-width: 768px) {
+          .hist-kpis { grid-template-columns: repeat(2,1fr); }
+          .hist-mes-detalhe { grid-template-columns: repeat(2,1fr); }
+        }
+      `}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>Histórico Anual</h1>
@@ -81,7 +90,7 @@ export default function HistoricoClient() {
       </div>
 
       {/* KPIs anuais */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+      <div className="hist-kpis">
         {[
           { label: 'Receita total', val: totalReceita, cor: VERDE },
           { label: 'Fixas total', val: totalFixas, cor: '#fff' },
@@ -95,13 +104,12 @@ export default function HistoricoClient() {
         ))}
       </div>
 
-      {/* Gráfico de barras */}
       {loading ? <div style={{ color: '#6B7280', textAlign: 'center', padding: 40 }}>Carregando...</div> : (
         <>
+          {/* Gráfico de barras */}
           <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '24px 20px', marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', marginBottom: 20 }}>Receita vs Gastos por mês</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, paddingBottom: 24, position: 'relative' as const }}>
-              {/* Linha de base */}
               <div style={{ position: 'absolute' as const, bottom: 24, left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.07)' }} />
               {dados.map(d => {
                 const maxVal = Math.max(...dados.map(x => Math.max(x.receita, x.fixas + x.variaveis)), 1)
@@ -134,7 +142,7 @@ export default function HistoricoClient() {
               <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 16 }}>
                 {MESES_FULL[mesSelecionado - 1]} {anoSel}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              <div className="hist-mes-detalhe">
                 {[
                   { label: 'Receita', val: mesAtual.receita, cor: VERDE },
                   { label: 'Fixas', val: mesAtual.fixas, cor: '#fff' },
@@ -150,13 +158,13 @@ export default function HistoricoClient() {
             </div>
           )}
 
-          {/* Tabela */}
-          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          {/* Tabela com scroll horizontal no mobile */}
+          <div className="hist-tabela-wrap" style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                   {['Mês','Receita','Fixas','Variáveis','Saldo'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left' as const, fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase' as const }}>{h}</th>
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left' as const, fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase' as const, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -170,13 +178,13 @@ export default function HistoricoClient() {
                       background: isAtual ? 'rgba(79,70,229,0.06)' : 'transparent',
                       opacity: temDados || isAtual ? 1 : 0.4,
                     }}>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: isAtual ? '#818CF8' : '#E5E7EB', fontWeight: isAtual ? 600 : 400 }}>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: isAtual ? '#818CF8' : '#E5E7EB', fontWeight: isAtual ? 600 : 400, whiteSpace: 'nowrap' }}>
                         {MESES_FULL[d.mes - 1]}{isAtual ? ' ←' : ''}
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.receita > 0 ? VERDE : '#4B5563', fontWeight: 500 }}>{temDados || isAtual ? fmt(d.receita) : '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.fixas > 0 ? '#E5E7EB' : '#4B5563' }}>{temDados || isAtual ? fmt(d.fixas) : '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.variaveis > 0 ? VERM : '#4B5563' }}>{temDados || isAtual ? fmt(d.variaveis) : '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.saldo > 0 ? VERDE : d.saldo < 0 ? VERM : '#4B5563', fontWeight: 600 }}>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.receita > 0 ? VERDE : '#4B5563', fontWeight: 500, whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.receita) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.fixas > 0 ? '#E5E7EB' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.fixas) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.variaveis > 0 ? VERM : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.variaveis) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.saldo > 0 ? VERDE : d.saldo < 0 ? VERM : '#4B5563', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {temDados || isAtual ? fmt(d.saldo) : '—'}
                       </td>
                     </tr>

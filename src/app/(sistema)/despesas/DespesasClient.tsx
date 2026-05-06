@@ -121,14 +121,12 @@ export default function DespesasClient() {
   const totalPagas   = fixas.filter(f => f.pago).reduce((s, f) => s + f.valor_mensal, 0)
   const totalVar     = variaveis.reduce((s, v) => s + v.valor, 0)
 
-  // Teto semanal: buscar receitas do mês para calcular
   const semanaDoMes = Math.ceil(hoje.getDate() / 7)
   const varSemana   = variaveis.filter(v => {
     const d = new Date(v.data + 'T12:00:00')
     return d.getMonth() + 1 === mesSel && d.getFullYear() === anoSel && Math.ceil(d.getDate() / 7) === semanaDoMes
   }).reduce((s, v) => s + v.valor, 0)
 
-  // Agrupar variáveis por categoria
   const catMap: Record<string, number> = {}
   variaveis.forEach(v => { catMap[v.categoria] = (catMap[v.categoria] || 0) + v.valor })
   const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1])
@@ -141,13 +139,28 @@ export default function DespesasClient() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <style>{`
+        .desp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .desp-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .desp-kpis { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+        .desp-card-row { display: flex; align-items: center; justify-content: space-between; }
+        .desp-card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        @media (max-width: 768px) {
+          .desp-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+          .desp-kpis { grid-template-columns: repeat(2, 1fr); }
+          .desp-card-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+          .desp-card-actions { width: 100%; flex-wrap: wrap; }
+          .desp-card-actions button { flex: 1; min-width: 70px; }
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="desp-header">
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>Despesas — P2</h1>
           <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Controle fixas e variáveis. Respeite o teto semanal.</p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="desp-header-actions">
           <select value={mesSel} onChange={e => setMesSel(Number(e.target.value))}
             style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#fff', outline: 'none' }}>
             {MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
@@ -163,7 +176,7 @@ export default function DespesasClient() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+      <div className="desp-kpis">
         <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px' }}>
           <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Fixas do mês</div>
           <div style={{ fontSize: 22, fontWeight: 600, color: '#fff' }}>{fmt(totalFixas)}</div>
@@ -210,28 +223,28 @@ export default function DespesasClient() {
               {fixas.map(f => {
                 const st = corStatus(f)
                 return (
-                  <div key={f.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>{f.descricao}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
+                  <div key={f.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 18px' }}>
+                    <div className="desp-card-row">
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>{f.descricao}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#6B7280' }}>
+                          {f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: '#fff', marginTop: 4 }}>{fmt(f.valor_mensal)}</div>
                       </div>
-                      <div style={{ fontSize: 12, color: '#6B7280' }}>
-                        {f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}
+                      <div className="desp-card-actions">
+                        <button onClick={() => togglePago(f)} style={{
+                          background: f.pago ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${f.pago ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                          borderRadius: 6, padding: '6px 12px', fontSize: 12,
+                          color: f.pago ? '#4ade80' : '#9CA3AF', cursor: 'pointer',
+                        }}>{f.pago ? '✓ Pago' : 'Pagar'}</button>
+                        <button onClick={() => abrirEditarF(f)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }}>Editar</button>
+                        <button onClick={() => excluirF(f.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer' }}>Excluir</button>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ textAlign: 'right' as const }}>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>{fmt(f.valor_mensal)}</div>
-                      </div>
-                      <button onClick={() => togglePago(f)} style={{
-                        background: f.pago ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${f.pago ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                        borderRadius: 6, padding: '6px 12px', fontSize: 12,
-                        color: f.pago ? '#4ade80' : '#9CA3AF', cursor: 'pointer',
-                      }}>{f.pago ? '✓ Pago' : 'Pagar'}</button>
-                      <button onClick={() => abrirEditarF(f)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }}>Editar</button>
-                      <button onClick={() => excluirF(f.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer' }}>Excluir</button>
                     </div>
                   </div>
                 )
@@ -240,7 +253,6 @@ export default function DespesasClient() {
           )
         ) : (
           <div>
-            {/* Resumo por categoria */}
             {cats.length > 0 && (
               <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: '#fff', marginBottom: 12 }}>Por categoria</div>
@@ -264,18 +276,20 @@ export default function DespesasClient() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
                 {variaveis.map(v => (
-                  <div key={v.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: '#fff' }}>{v.descricao}</div>
-                      <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-                        {v.categoria} · {new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}
-                        {contas.find(c => c.id === v.conta_id) ? ` · ${contas.find(c => c.id === v.conta_id)?.nome}` : ''}
+                  <div key={v.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 18px' }}>
+                    <div className="desp-card-row">
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: '#fff' }}>{v.descricao}</div>
+                        <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                          {v.categoria} · {new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                          {contas.find(c => c.id === v.conta_id) ? ` · ${contas.find(c => c.id === v.conta_id)?.nome}` : ''}
+                        </div>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: VERM }}>{fmt(v.valor)}</span>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontSize: 15, fontWeight: 600, color: VERM }}>{fmt(v.valor)}</span>
-                      <button onClick={() => abrirEditarV(v)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }}>Editar</button>
-                      <button onClick={() => excluirV(v.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer' }}>Excluir</button>
+                      <div className="desp-card-actions">
+                        <button onClick={() => abrirEditarV(v)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }}>Editar</button>
+                        <button onClick={() => excluirV(v.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer' }}>Excluir</button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -287,9 +301,9 @@ export default function DespesasClient() {
 
       {/* Modal */}
       {modal && (
-        <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}
           onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 480 }}>
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 24 }}>
               {aba === 'fixas' ? (editandoF ? 'Editar despesa fixa' : 'Nova despesa fixa') : (editandoV ? 'Editar gasto' : 'Lançar gasto variável')}
             </h2>

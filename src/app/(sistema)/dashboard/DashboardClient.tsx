@@ -84,7 +84,6 @@ export default function DashboardClient() {
     carregar()
   }, [mes, ano])
 
-  // Cálculos
   const totalRecebido  = receitas.reduce((s, r) => s + (r.valor_recebido || 0), 0)
   const totalPrevisto  = receitas.reduce((s, r) => s + (r.valor_previsto || 0), 0)
   const totalFixas     = fixas.reduce((s, f) => s + (f.valor_mensal || 0), 0)
@@ -93,10 +92,8 @@ export default function DashboardClient() {
   const totalReservado = reservas.reduce((s, r) => s + (r.valor_acumulado || 0), 0)
   const saldoDisp      = totalRecebido - totalSaidas - totalReservado
 
-  // Teto semanal de variáveis: (receita conservadora ÷ 4) × 30%
   const receitaConsv   = totalPrevisto > 0 ? totalPrevisto : totalRecebido
   const tetoSemanal    = Math.round((receitaConsv / 4) * 0.3)
-  // Variáveis desta semana
   const hoje           = new Date()
   const varSemana      = variaveis
     .filter(v => {
@@ -107,7 +104,6 @@ export default function DashboardClient() {
   const pctTeto        = tetoSemanal > 0 ? Math.round((varSemana / tetoSemanal) * 100) : 0
   const restante       = tetoSemanal - varSemana
 
-  // Contas: saldo = saldo_inicial + entradas - saídas
   const contasComSaldo = contas.map(c => {
     const entradasConta = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
     const saidasConta   = variaveis.filter(v => v.conta_id === c.id).reduce((s, v) => s + (v.valor || 0), 0)
@@ -115,7 +111,6 @@ export default function DashboardClient() {
   })
   const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
 
-  // Variáveis por categoria
   const catMap: Record<string, number> = {}
   variaveis.forEach(v => { catMap[v.categoria] = (catMap[v.categoria] || 0) + v.valor })
   const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5)
@@ -133,9 +128,21 @@ export default function DashboardClient() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <style>{`
+        .db-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .db-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+        .db-grid-main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .db-grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        @media (max-width: 768px) {
+          .db-header { flex-direction: column; gap: 12px; }
+          .db-kpis { grid-template-columns: repeat(2, 1fr); }
+          .db-grid-main { grid-template-columns: 1fr; }
+          .db-grid-bottom { grid-template-columns: 1fr; }
+        }
+      `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <div className="db-header">
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>
             Olá, {nomeUsuario || 'bem-vindo'} 👋
@@ -172,7 +179,7 @@ export default function DashboardClient() {
       )}
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+      <div className="db-kpis">
         <KPI label="Receita recebida"   valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
         <KPI label="Total de saídas"    valor={fmt(totalSaidas)}    sub="Fixas + variáveis"                  cor={VERM}  />
         <KPI label="Reservado (P3)"     valor={fmt(totalReservado)} sub="Emergência + meses fracos"          cor={INDIGO}/>
@@ -180,8 +187,7 @@ export default function DashboardClient() {
       </div>
 
       {/* Grid principal */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-
+      <div className="db-grid-main">
         {/* Método 3 Passos */}
         <Card title="Método 3 Passos — este mês">
           {[
@@ -274,7 +280,7 @@ export default function DashboardClient() {
       </div>
 
       {/* Grid inferior */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+      <div className="db-grid-bottom">
 
         {/* Variáveis por categoria */}
         <Card title="Variáveis por categoria">
@@ -313,7 +319,6 @@ export default function DashboardClient() {
             </div>
           ) : metas.map(m => {
             const pct = m.valor_alvo > 0 ? Math.round((m.valor_atual / m.valor_alvo) * 100) : 0
-            const cor = m.tipo === 'emergencia' ? INDIGO : m.tipo === 'meses_fracos' ? AMBER : VERDE
             return (
               <div key={m.id} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
@@ -364,8 +369,6 @@ export default function DashboardClient() {
               }}>{fmt(c.saldo)}</div>
             </div>
           ))}
-
-          {/* Saldo total */}
           {contasComSaldo.length > 0 && (
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',

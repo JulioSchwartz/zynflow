@@ -130,13 +130,28 @@ export default function ReceitasClient() {
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <style>{`
+        .rec-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .rec-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .rec-kpis { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+        .rec-card-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        .rec-card-actions { display: flex; gap: 8px; align-items: center; margin-left: 16px; flex-shrink: 0; flex-wrap: wrap; }
+        @media (max-width: 768px) {
+          .rec-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+          .rec-kpis { grid-template-columns: repeat(2, 1fr); }
+          .rec-card-row { flex-direction: column; gap: 10px; }
+          .rec-card-actions { margin-left: 0; width: 100%; }
+          .rec-card-actions button { flex: 1; }
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="rec-header">
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>Receitas — P1</h1>
           <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Mapeie tudo que entra. Trabalhe com o valor conservador.</p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="rec-header-actions">
           <select value={mesSel} onChange={e => setMesSel(Number(e.target.value))}
             style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#fff', outline: 'none' }}>
             {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
@@ -152,7 +167,7 @@ export default function ReceitasClient() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+      <div className="rec-kpis">
         {[
           { label: 'Previsto', valor: fmt(totalPrevisto), cor: '#fff' },
           { label: 'Recebido', valor: fmt(totalRecebido), cor: VERDE },
@@ -193,9 +208,9 @@ export default function ReceitasClient() {
             const st = corStatus(r.status)
             return (
               <div key={r.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div className="rec-card-row">
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>{r.fonte}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
                     </div>
@@ -206,7 +221,7 @@ export default function ReceitasClient() {
                     </div>
                     {r.observacoes && <div style={{ fontSize: 12, color: '#4B5563', marginTop: 4 }}>{r.observacoes}</div>}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 16 }}>
+                  <div className="rec-card-actions">
                     {r.status !== 'recebido' && (
                       <button onClick={() => marcarRecebido(r)} style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#4ade80', cursor: 'pointer' }}>
                         ✓ Recebi
@@ -224,9 +239,9 @@ export default function ReceitasClient() {
 
       {/* Modal */}
       {modal && (
-        <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}
           onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 500 }}>
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 24 }}>{editando ? 'Editar receita' : 'Nova receita'}</h2>
 
             <div style={{ marginBottom: 16 }}>
