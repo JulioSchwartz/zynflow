@@ -26,10 +26,8 @@ export async function POST(req: NextRequest) {
   })
 
   if (authError) {
-    // Email já existe em outra plataforma Zyncompany
     if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
 
-      // Buscar o usuário pelo email via admin (sem criar sessão)
       const { data: listData } = await sb.auth.admin.listUsers()
       const usuarioExistente = listData?.users?.find(u => u.email === email)
 
@@ -39,7 +37,6 @@ export async function POST(req: NextRequest) {
 
       const userId = usuarioExistente.id
 
-      // Verificar se já tem perfil no Zynflow
       const { data: perfilExistente } = await sb
         .from('usuarios_flow')
         .select('id, status, setup_concluido')
@@ -47,15 +44,11 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (perfilExistente) {
-        // Já tem perfil — retorna jaExistia para o front só fazer login
         return NextResponse.json({ ok: true, userId, jaExistia: true })
       }
 
-      // Não tem perfil — cria agora com a senha que o usuário informou
-      // Atualizar a senha para a nova (pode ser diferente da outra plataforma)
       await sb.auth.admin.updateUserById(userId, { password })
 
-      // Criar perfil no Zynflow
       await sb.from('usuarios_flow').insert({
         user_id:         userId,
         email,
@@ -66,8 +59,8 @@ export async function POST(req: NextRequest) {
         setup_concluido: false,
       })
 
-      // Enviar email de boas-vindas
       await enviarEmailBoasVindas(email, nome, trialEndsAt)
+      await enviarNotificacaoInterna(email, nome, trialEndsAt)
 
       return NextResponse.json({ ok: true, userId, jaExistia: false })
     }
@@ -91,6 +84,7 @@ export async function POST(req: NextRequest) {
   })
 
   await enviarEmailBoasVindas(email, nome, trialEndsAt)
+  await enviarNotificacaoInterna(email, nome, trialEndsAt)
 
   return NextResponse.json({ ok: true, userId: authData.user.id, jaExistia: false })
 }
@@ -102,7 +96,7 @@ async function enviarEmailBoasVindas(email: string, nome: string, trialEndsAt: D
 
   try {
     await resend.emails.send({
-      from: 'Zynflow <noreply@zynplan.com.br>',
+      from: 'Zynflow <noreply@zyncompany.com.br>',
       to: email,
       subject: `${primeiroNome}, seu controle financeiro começa agora 🚀`,
       html: `<!DOCTYPE html>
@@ -179,6 +173,55 @@ async function enviarEmailBoasVindas(email: string, nome: string, trialEndsAt: D
 </html>`,
     })
   } catch (e) {
-    console.error('Erro ao enviar email:', e)
+    console.error('Erro ao enviar email boas-vindas:', e)
+  }
+}
+
+async function enviarNotificacaoInterna(email: string, nome: string, trialEndsAt: Date) {
+  const dataExpiracao = trialEndsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+
+  try {
+    await resend.emails.send({
+      from: 'Zynflow <noreply@zyncompany.com.br>',
+      to: 'suportezynflow@gmail.com',
+      subject: `🎉 Novo cadastro Zynflow: ${nome || email}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#07080F;color:#fff;border-radius:12px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">
+            <div style="width:42px;height:42px;background:#4F46E5;border-radius:10px;text-align:center;line-height:42px;font-size:22px;font-weight:900;color:#fff;">Z</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#fff;letter-spacing:2px;">ZYNFLOW</div>
+              <div style="font-size:10px;color:#818CF8;letter-spacing:3px;">NOVO CADASTRO</div>
+            </div>
+          </div>
+          <h2 style="color:#818CF8;margin:0 0 24px;">🎉 Novo usuário no Zynflow!</h2>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:13px;width:140px;">Nome</td>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:600;">${nome || '—'}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:13px;">E-mail</td>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:600;color:#818CF8;">${email}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:13px;">Plano</td>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:600;">Trial (30 dias grátis)</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:13px;">Trial até</td>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:600;color:#818CF8;">${dataExpiracao}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 0;color:rgba(255,255,255,0.4);font-size:13px;">Data/hora</td>
+              <td style="padding:12px 0;font-weight:600;">${agora}</td>
+            </tr>
+          </table>
+        </div>
+      `,
+    })
+  } catch (e) {
+    console.error('Erro ao enviar notificação interna:', e)
   }
 }
