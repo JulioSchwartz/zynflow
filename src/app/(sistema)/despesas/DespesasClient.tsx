@@ -26,6 +26,7 @@ interface Fixa {
   valor_pago: number
   mes: number
   ano: number
+  conta_id: string | null
 }
 
 interface Diaria {
@@ -41,8 +42,8 @@ interface Diaria {
 
 interface Conta { id: string; nome: string }
 
-const VAZIO_F = { tipo: 'fixa', categoria: 'Moradia', descricao: '', valor_mensal: 0, dia_vencimento: null as number | null, pago: false, valor_pago: 0 }
-const VAZIO_V = { tipo: 'variavel', categoria: 'Cartão de Crédito', descricao: '', valor_mensal: 0, dia_vencimento: null as number | null, pago: false, valor_pago: 0 }
+const VAZIO_F = { tipo: 'fixa', categoria: 'Moradia', descricao: '', valor_mensal: 0, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '' }
+const VAZIO_V = { tipo: 'variavel', categoria: 'Cartão de Crédito', descricao: '', valor_mensal: 0, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '' }
 const VAZIO_D = { categoria: 'Restaurante', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], conta_id: '' }
 
 export default function DespesasClient() {
@@ -108,9 +109,9 @@ export default function DespesasClient() {
   function abrirEditarF(f: Fixa) {
     setEditandoF(f)
     if (f.tipo === 'fixa') {
-      setFormF({ tipo: 'fixa', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago })
+      setFormF({ tipo: 'fixa', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago, conta_id: f.conta_id || '' })
     } else {
-      setFormV({ tipo: 'variavel', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago })
+      setFormV({ tipo: 'variavel', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago, conta_id: f.conta_id || '' })
     }
     setErro(''); setModal(true)
   }
@@ -135,6 +136,7 @@ export default function DespesasClient() {
         dia_vencimento: form.dia_vencimento,
         pago: form.pago,
         valor_pago: form.valor_pago,
+        conta_id: form.conta_id || null,
         mes: mesSel,
         ano: anoSel,
       }
@@ -208,6 +210,7 @@ export default function DespesasClient() {
 
   const renderCardFV = (f: Fixa) => {
     const st = corStatus(f)
+    const nomeConta = contas.find(c => c.id === f.conta_id)?.nome
     return (
       <div key={f.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 18px' }}>
         <div className="desp-card-row">
@@ -218,16 +221,15 @@ export default function DespesasClient() {
             </div>
             <div style={{ fontSize: 12, color: '#6B7280' }}>
               {f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}
+              {nomeConta ? ` · ${nomeConta}` : ''}
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#fff', marginTop: 4 }}>{fmt(f.valor_mensal)}</div>
+            <span style={{ fontSize: 15, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</span>
           </div>
           <div className="desp-card-actions">
-            <button onClick={() => togglePago(f)} style={{
-              background: f.pago ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${f.pago ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)'}`,
-              borderRadius: 6, padding: '6px 12px', fontSize: 12,
-              color: f.pago ? '#4ade80' : '#9CA3AF', cursor: 'pointer',
-            }}>{f.pago ? '✓ Pago' : 'Pagar'}</button>
+            <button onClick={() => togglePago(f)}
+              style={{ background: f.pago ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${f.pago ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, padding: '6px 12px', fontSize: 12, color: f.pago ? '#4ade80' : '#9CA3AF', cursor: 'pointer' }}>
+              {f.pago ? '✓ Pago' : 'Pagar'}
+            </button>
             <button onClick={() => abrirEditarF(f)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }}>Editar</button>
             <button onClick={() => excluirF(f.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#FCA5A5', cursor: 'pointer' }}>Excluir</button>
           </div>
@@ -236,33 +238,26 @@ export default function DespesasClient() {
     )
   }
 
-  const cats = aba === 'fixa' ? CATS_FIXA : aba === 'variavel' ? CATS_VARIAVEL : CATS_DIARIA
-  const formAtual = aba === 'fixa' ? formF : formV
+  const inp: React.CSSProperties = { width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div>
       <style>{`
-        .desp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .desp-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .desp-kpis { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
-        .desp-card-row { display: flex; align-items: center; justify-content: space-between; }
-        .desp-card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .desp-card-row { display: flex; align-items: center; justify-content: space-between; gap: 12; }
+        .desp-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
         @media (max-width: 768px) {
-          .desp-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-          .desp-kpis { grid-template-columns: repeat(2, 1fr); }
-          .desp-card-row { flex-direction: column; align-items: flex-start; gap: 10px; }
-          .desp-card-actions { width: 100%; flex-wrap: wrap; }
-          .desp-card-actions button { flex: 1; min-width: 70px; }
+          .desp-card-row { flex-direction: column; align-items: flex-start; }
+          .desp-card-actions { width: 100%; justify-content: flex-end; }
         }
       `}</style>
 
-      {/* Header */}
-      <div className="desp-header">
+      {/* HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' as const, gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>Despesas — P2</h1>
           <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Controle fixas, variáveis e diárias.</p>
         </div>
-        <div className="desp-header-actions">
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' as const }}>
           <select value={mesSel} onChange={e => setMesSel(Number(e.target.value))}
             style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#fff', outline: 'none' }}>
             {MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
@@ -277,43 +272,34 @@ export default function DespesasClient() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="desp-kpis">
-        <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Fixas do mês</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: '#fff' }}>{fmt(totalFixas)}</div>
-          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>{fmt(totalFixasPagas)} pagos</div>
-        </div>
-        <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Variáveis do mês</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: AMBER }}>{fmt(totalVariaveis)}</div>
-          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>{fmt(totalVariaveisPagas)} pagos</div>
-        </div>
-        <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Diárias do mês</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: VERM }}>{fmt(totalDiarias)}</div>
-          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>{diarias.length} lançamento(s)</div>
-        </div>
-      </div>
-
-      {/* Abas */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 4 }}>
-        {([
-          { key: 'fixa',    label: `🏠 Fixas (${fixas.length})` },
-          { key: 'variavel', label: `📊 Variáveis (${variaveis.length})` },
-          { key: 'diaria',  label: `🛒 Diárias (${diarias.length})` },
-        ] as const).map(a => (
-          <button key={a.key} onClick={() => setAba(a.key)} style={{
-            flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, fontSize: 13,
-            fontWeight: aba === a.key ? 600 : 400,
-            background: aba === a.key ? '#0D0F1A' : 'transparent',
-            color: aba === a.key ? '#fff' : '#6B7280',
-            cursor: 'pointer',
-          }}>{a.label}</button>
+      {/* RESUMO */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Fixas do mês', val: totalFixas, sub: `${fmt(totalFixasPagas)} pago` },
+          { label: 'Variáveis do mês', val: totalVariaveis, sub: `${fmt(totalVariaveisPagas)} pago` },
+          { label: 'Diárias do mês', val: totalDiarias, sub: `${diarias.length} lançamento(s)` },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 6 }}>{k.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: VERM }}>{fmt(k.val)}</div>
+            <div style={{ fontSize: 12, color: '#4B5563', marginTop: 4 }}>{k.sub}</div>
+          </div>
         ))}
       </div>
 
-      {loading ? <div style={{ color: '#6B7280', textAlign: 'center', padding: 40 }}>Carregando...</div> : (
+      {/* ABAS */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#0D0F1A', borderRadius: 10, padding: 4, border: '1px solid rgba(255,255,255,0.07)' }}>
+        {(['fixa','variavel','diaria'] as TipoAba[]).map(t => (
+          <button key={t} onClick={() => setAba(t)}
+            style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: aba === t ? 600 : 400, background: aba === t ? INDIGO : 'transparent', color: aba === t ? '#fff' : '#6B7280' }}>
+            {t === 'fixa' ? `Fixas (${fixas.length})` : t === 'variavel' ? `Variáveis (${variaveis.length})` : `Diárias (${diarias.length})`}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ color: '#6B7280', textAlign: 'center', padding: 40 }}>Carregando...</div>
+      ) : (
         <>
           {/* ABA FIXAS */}
           {aba === 'fixa' && (
@@ -395,7 +381,7 @@ export default function DespesasClient() {
         </>
       )}
 
-      {/* Modal */}
+      {/* MODAL */}
       {modal && (
         <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}
           onClick={e => e.target === e.currentTarget && setModal(false)}>
@@ -414,7 +400,7 @@ export default function DespesasClient() {
                     <select
                       value={aba === 'fixa' ? formF.categoria : formV.categoria}
                       onChange={e => aba === 'fixa' ? setFormF(p => ({ ...p, categoria: e.target.value })) : setFormV(p => ({ ...p, categoria: e.target.value }))}
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none' }}>
+                      style={inp}>
                       {(aba === 'fixa' ? CATS_FIXA : CATS_VARIAVEL).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
@@ -427,18 +413,20 @@ export default function DespesasClient() {
                         aba === 'fixa' ? setFormF(p => ({ ...p, dia_vencimento: v })) : setFormV(p => ({ ...p, dia_vencimento: v }))
                       }}
                       placeholder="Ex: 10"
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                      style={inp} />
                   </div>
                 </div>
+
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Descrição *</label>
                   <input
                     value={aba === 'fixa' ? formF.descricao : formV.descricao}
                     onChange={e => aba === 'fixa' ? setFormF(p => ({ ...p, descricao: e.target.value })) : setFormV(p => ({ ...p, descricao: e.target.value }))}
                     placeholder={aba === 'fixa' ? 'Ex: Aluguel, Plano de saúde...' : 'Ex: Cartão Bradesco, Conta Luz...'}
-                    style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                    style={inp} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Valor (R$)</label>
                     <input type="number"
@@ -447,15 +435,26 @@ export default function DespesasClient() {
                         const v = parseFloat(e.target.value) || 0
                         aba === 'fixa' ? setFormF(p => ({ ...p, valor_mensal: v })) : setFormV(p => ({ ...p, valor_mensal: v }))
                       }}
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                      style={inp} />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 24 }}>
-                    <input type="checkbox" id="pago"
-                      checked={aba === 'fixa' ? formF.pago : formV.pago}
-                      onChange={e => aba === 'fixa' ? setFormF(p => ({ ...p, pago: e.target.checked })) : setFormV(p => ({ ...p, pago: e.target.checked }))}
-                      style={{ width: 18, height: 18, accentColor: INDIGO }} />
-                    <label htmlFor="pago" style={{ fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Já pago</label>
+                  <div>
+                    <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta de pagamento</label>
+                    <select
+                      value={aba === 'fixa' ? formF.conta_id : formV.conta_id}
+                      onChange={e => aba === 'fixa' ? setFormF(p => ({ ...p, conta_id: e.target.value })) : setFormV(p => ({ ...p, conta_id: e.target.value }))}
+                      style={inp}>
+                      <option value="">Sem conta</option>
+                      {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                    </select>
                   </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                  <input type="checkbox" id="pago"
+                    checked={aba === 'fixa' ? formF.pago : formV.pago}
+                    onChange={e => aba === 'fixa' ? setFormF(p => ({ ...p, pago: e.target.checked })) : setFormV(p => ({ ...p, pago: e.target.checked }))}
+                    style={{ width: 18, height: 18, accentColor: INDIGO }} />
+                  <label htmlFor="pago" style={{ fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Já pago</label>
                 </div>
               </>
             ) : (
@@ -463,33 +462,28 @@ export default function DespesasClient() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Categoria</label>
-                    <select value={formD.categoria} onChange={e => setFormD(p => ({ ...p, categoria: e.target.value }))}
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none' }}>
+                    <select value={formD.categoria} onChange={e => setFormD(p => ({ ...p, categoria: e.target.value }))} style={inp}>
                       {CATS_DIARIA.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Data</label>
-                    <input type="date" value={formD.data} onChange={e => setFormD(p => ({ ...p, data: e.target.value }))}
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                    <input type="date" value={formD.data} onChange={e => setFormD(p => ({ ...p, data: e.target.value }))} style={inp} />
                   </div>
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Descrição *</label>
                   <input value={formD.descricao} onChange={e => setFormD(p => ({ ...p, descricao: e.target.value }))}
-                    placeholder="Ex: Almoço, Camiseta, Remédio..."
-                    style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                    placeholder="Ex: Almoço, Camiseta, Remédio..." style={inp} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
                   <div>
                     <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Valor (R$) *</label>
-                    <input type="number" value={formD.valor} onChange={e => setFormD(p => ({ ...p, valor: parseFloat(e.target.value) || 0 }))}
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                    <input type="number" value={formD.valor} onChange={e => setFormD(p => ({ ...p, valor: parseFloat(e.target.value) || 0 }))} style={inp} />
                   </div>
                   <div>
                     <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta</label>
-                    <select value={formD.conta_id} onChange={e => setFormD(p => ({ ...p, conta_id: e.target.value }))}
-                      style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none' }}>
+                    <select value={formD.conta_id} onChange={e => setFormD(p => ({ ...p, conta_id: e.target.value }))} style={inp}>
                       <option value="">Sem conta</option>
                       {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>

@@ -106,10 +106,12 @@ export default function DashboardClient() {
   const restante       = tetoSemanal - diariasSemana
 
   const contasComSaldo = contas.map(c => {
-    const entradasConta = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
-    const saidasConta   = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
-    return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasConta }
-  })
+  const entradasConta  = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
+  const saidasDiarias  = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
+  const saidasFixas    = fixas.filter(f => f.conta_id === c.id && f.pago).reduce((s, f) => s + (f.valor_mensal || 0), 0)
+  const saidasVariaveis = variaveis.filter(v => v.conta_id === c.id && v.pago).reduce((s, v) => s + (v.valor_mensal || 0), 0)
+  return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasDiarias - saidasFixas - saidasVariaveis }
+})
   const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
 
   const catMap: Record<string, number> = {}
