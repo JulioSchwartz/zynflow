@@ -23,15 +23,26 @@ const MENU = [
 export default function SistemaLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
-  const [nomeUsuario, setNomeUsuario] = useState('')
-  const [diasTrial, setDiasTrial]     = useState<number | null>(null)
-  const [menuAberto, setMenuAberto]   = useState(false)
+  const [nomeUsuario, setNomeUsuario]     = useState('')
+  const [diasTrial, setDiasTrial]         = useState<number | null>(null)
+  const [menuAberto, setMenuAberto]       = useState(false)
+  const [mostrarBannerPWA, setMostrarBannerPWA] = useState(false)
+  const [isIOS, setIsIOS]                 = useState(false)
   const mes = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
     .replace(/^\w/, c => c.toUpperCase())
 
   useEffect(() => {
     setMenuAberto(false)
   }, [pathname])
+
+  useEffect(() => {
+    const jáInstalado = window.matchMedia('(display-mode: standalone)').matches
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+    const jáFechou = localStorage.getItem('zynflow_pwa_banner') === 'fechado'
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    setIsIOS(ios)
+    if (isMobile && !jáInstalado && !jáFechou) setMostrarBannerPWA(true)
+  }, [])
 
   useEffect(() => {
     async function verificar() {
@@ -68,6 +79,11 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
     }
     verificar()
   }, [router, pathname])
+
+  function fecharBannerPWA() {
+    localStorage.setItem('zynflow_pwa_banner', 'fechado')
+    setMostrarBannerPWA(false)
+  }
 
   async function sair() {
     await supabase.auth.signOut()
@@ -142,6 +158,29 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
           .zf-topbar-nome { display: none; }
         }
       `}</style>
+
+      {/* BANNER PWA */}
+      {mostrarBannerPWA && (
+        <div style={{ background: 'rgba(79,70,229,0.12)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '10px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>📲</span>
+            <div>
+              <p style={{ color: '#818CF8', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>
+                Instale o Zynflow no seu celular!
+              </p>
+              <p style={{ color: '#4B5563', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+                {isIOS
+                  ? 'No Safari: toque em Compartilhar → "Adicionar à Tela de Início"'
+                  : 'No Chrome: toque no menu ⋮ → "Adicionar à tela inicial"'}
+              </p>
+            </div>
+          </div>
+          <button onClick={fecharBannerPWA}
+            style={{ background: 'transparent', border: 'none', color: '#4B5563', fontSize: 18, cursor: 'pointer', flexShrink: 0, padding: 0, lineHeight: 1 }}>
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Banner trial */}
       {diasTrial !== null && diasTrial <= 7 && (
