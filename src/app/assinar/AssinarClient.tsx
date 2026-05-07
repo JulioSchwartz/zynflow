@@ -8,10 +8,10 @@ const INDIGO = '#4F46E5'
 export default function AssinarClient() {
   const router = useRouter()
   const params = useSearchParams()
-  const [nome, setNome]         = useState('')
-  const [email, setEmail]       = useState('')
-  const [userId, setUserId]     = useState('')
-  const [loading, setLoading]   = useState(true)
+  const [nome, setNome]           = useState('')
+  const [email, setEmail]         = useState('')
+  const [userId, setUserId]       = useState('')
+  const [loading, setLoading]     = useState(true)
   const [iniciando, setIniciando] = useState(false)
   const sucesso = params.get('assinatura') === 'sucesso'
 
@@ -26,7 +26,6 @@ export default function AssinarClient() {
         .eq('user_id', user.id)
         .single()
 
-      // Se já é ativo, volta para dashboard
       if (data?.status === 'ativo') { router.push('/dashboard'); return }
 
       setNome(data?.nome || '')
@@ -60,7 +59,22 @@ export default function AssinarClient() {
       minHeight: '100vh', background: '#07080F',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, fontFamily: 'system-ui, sans-serif',
+      position: 'relative',
     }}>
+
+      {/* BOTÃO VOLTAR */}
+      {!sucesso && (
+        <button onClick={() => router.push('/dashboard')}
+          style={{
+            position: 'absolute', top: 20, left: 20,
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+            color: '#9CA3AF', padding: '8px 16px', borderRadius: 8,
+            fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+          ← Voltar
+        </button>
+      )}
+
       <div style={{ width: '100%', maxWidth: 500, textAlign: 'center' }}>
 
         {/* Logo */}
