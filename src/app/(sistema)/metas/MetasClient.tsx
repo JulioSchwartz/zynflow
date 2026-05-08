@@ -9,6 +9,7 @@ const ICONES = ['🎯','🏠','🚗','✈️','💻','📱','🎓','💍','🏖�
 function fmt(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 
 interface Meta { id: string; nome: string; valor_alvo: number; valor_atual: number; prazo: string | null; cor: string; icone: string; status: string }
+interface Aporte { id: string; valor: number; data: string }
 
 const VAZIO = { nome: '', valor_alvo: 0, valor_atual: 0, prazo: '', cor: INDIGO, icone: '🎯', status: 'ativa' }
 
@@ -18,9 +19,13 @@ export default function MetasClient() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal]     = useState(false)
   const [modalAporte, setModalAporte] = useState<Meta | null>(null)
+  const [modalHistorico, setModalHistorico] = useState<Meta | null>(null)
+  const [historico, setHistorico]           = useState<Aporte[]>([])
+  const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [editando, setEditando] = useState<Meta | null>(null)
   const [form, setForm]       = useState(VAZIO)
-  const [aporte, setAporte]   = useState(0)
+  const [aporteValor, setAporteValor] = useState(0)
+  const [aporteData, setAporteData]   = useState(new Date().toISOString().split('T')[0])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro]       = useState('')
   const [filtro, setFiltro]   = useState<'ativa' | 'concluida' | 'todas'>('ativa')
@@ -60,14 +65,39 @@ export default function MetasClient() {
     setSalvando(false); setModal(false)
   }
 
+  function abrirAporte(m: Meta) {
+    setModalAporte(m)
+    setAporteValor(0)
+    setAporteData(new Date().toISOString().split('T')[0])
+  }
+
   async function fazerAporte() {
-    if (!modalAporte || aporte <= 0) return
+    if (!modalAporte || aporteValor <= 0) return
     setSalvando(true)
-    const novoValor = Math.min(modalAporte.valor_atual + aporte, modalAporte.valor_alvo)
+    const novoValor = Math.min(modalAporte.valor_atual + aporteValor, modalAporte.valor_alvo)
     const novoStatus = novoValor >= modalAporte.valor_alvo ? 'concluida' : 'ativa'
-    await supabase.from('metas_flow').update({ valor_atual: novoValor, status: novoStatus }).eq('id', modalAporte.id)
+    await Promise.all([
+      supabase.from('metas_flow').update({ valor_atual: novoValor, status: novoStatus }).eq('id', modalAporte.id),
+      supabase.from('aportes_metas_flow').insert({
+        user_id: userId,
+        meta_id: modalAporte.id,
+        valor: aporteValor,
+        data: aporteData,
+      }),
+    ])
     setMetas(prev => prev.map(m => m.id === modalAporte.id ? { ...m, valor_atual: novoValor, status: novoStatus } : m))
-    setSalvando(false); setModalAporte(null); setAporte(0)
+    setSalvando(false); setModalAporte(null); setAporteValor(0)
+  }
+
+  async function abrirHistorico(m: Meta) {
+    setModalHistorico(m)
+    setLoadingHistorico(true)
+    const { data } = await supabase.from('aportes_metas_flow')
+      .select('id, valor, data')
+      .eq('meta_id', m.id)
+      .order('data', { ascending: false })
+    setHistorico(data || [])
+    setLoadingHistorico(false)
   }
 
   async function excluir(id: string) {
@@ -78,7 +108,8 @@ export default function MetasClient() {
 
   const metasFiltradas = metas.filter(m => filtro === 'todas' || m.status === filtro)
   const totalAcumulado = metas.filter(m => m.status === 'ativa').reduce((s, m) => s + m.valor_atual, 0)
-  const totalAlvo = metas.filter(m => m.status === 'ativa').reduce((s, m) => s + m.valor_alvo, 0)
+
+  const inp: React.CSSProperties = { width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' }
 
   if (loading) return <div style={{ color: '#6B7280', padding: 40, textAlign: 'center' }}>Carregando...</div>
 
@@ -138,7 +169,9 @@ export default function MetasClient() {
             const pct = m.valor_alvo > 0 ? Math.min(Math.round((m.valor_atual / m.valor_alvo) * 100), 100) : 0
             const concluida = m.status === 'concluida'
             return (
-              <div key={m.id} style={{ background: '#0D0F1A', border: `1px solid ${concluida ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 14, padding: '20px 22px', opacity: concluida ? 0.85 : 1 }}>
+              <div key={m.id}
+                onClick={() => abrirHistorico(m)}
+                style={{ background: '#0D0F1A', border: `1px solid ${concluida ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 14, padding: '20px 22px', opacity: concluida ? 0.85 : 1, cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: `${m.cor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icone}</div>
@@ -159,9 +192,9 @@ export default function MetasClient() {
                 </div>
                 <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 14 }}>{pct}% — faltam {fmt(Math.max(m.valor_alvo - m.valor_atual, 0))}</div>
 
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
                   {!concluida && (
-                    <button onClick={() => { setModalAporte(m); setAporte(0) }} style={{ flex: 1, background: `${m.cor}20`, border: `1px solid ${m.cor}40`, borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 600, color: m.cor, cursor: 'pointer' }}>+ Aporte</button>
+                    <button onClick={() => abrirAporte(m)} style={{ flex: 1, background: `${m.cor}20`, border: `1px solid ${m.cor}40`, borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 600, color: m.cor, cursor: 'pointer' }}>+ Aporte</button>
                   )}
                   <button onClick={() => abrirEditar(m)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 14px', fontSize: 13, color: '#9CA3AF', cursor: 'pointer' }}>Editar</button>
                   <button onClick={() => excluir(m.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 14px', fontSize: 13, color: '#FCA5A5', cursor: 'pointer' }}>Excluir</button>
@@ -181,27 +214,23 @@ export default function MetasClient() {
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Nome da meta *</label>
-              <input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Notebook, Viagem, Reserva..."
-                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+              <input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Notebook, Viagem, Reserva..." style={inp} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
               <div>
                 <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Valor alvo (R$) *</label>
-                <input type="number" value={form.valor_alvo} onChange={e => setForm(p => ({ ...p, valor_alvo: parseFloat(e.target.value) || 0 }))}
-                  style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                <input type="number" value={form.valor_alvo} onChange={e => setForm(p => ({ ...p, valor_alvo: parseFloat(e.target.value) || 0 }))} style={inp} />
               </div>
               <div>
                 <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Já tenho (R$)</label>
-                <input type="number" value={form.valor_atual} onChange={e => setForm(p => ({ ...p, valor_atual: parseFloat(e.target.value) || 0 }))}
-                  style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                <input type="number" value={form.valor_atual} onChange={e => setForm(p => ({ ...p, valor_atual: parseFloat(e.target.value) || 0 }))} style={inp} />
               </div>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Prazo (opcional)</label>
-              <input type="date" value={form.prazo} onChange={e => setForm(p => ({ ...p, prazo: e.target.value }))}
-                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+              <input type="date" value={form.prazo} onChange={e => setForm(p => ({ ...p, prazo: e.target.value }))} style={inp} />
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -241,10 +270,13 @@ export default function MetasClient() {
           <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 380 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 8 }}>Fazer aporte</h2>
             <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 24 }}>{modalAporte.nome} — {fmt(modalAporte.valor_atual)} de {fmt(modalAporte.valor_alvo)}</p>
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Valor do aporte (R$)</label>
-              <input type="number" value={aporte} onChange={e => setAporte(parseFloat(e.target.value) || 0)} autoFocus
-                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+              <input type="number" value={aporteValor} onChange={e => setAporteValor(parseFloat(e.target.value) || 0)} autoFocus style={inp} />
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Data</label>
+              <input type="date" value={aporteData} onChange={e => setAporteData(e.target.value)} style={inp} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setModalAporte(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Cancelar</button>
@@ -252,6 +284,46 @@ export default function MetasClient() {
                 {salvando ? 'Salvando...' : 'Confirmar aporte'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal histórico */}
+      {modalHistorico && (
+        <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={e => e.target === e.currentTarget && setModalHistorico(null)}>
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+              <span style={{ fontSize: 24 }}>{modalHistorico.icone}</span>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', margin: 0 }}>{modalHistorico.nome}</h2>
+            </div>
+            <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 24 }}>Histórico de aportes</p>
+
+            {loadingHistorico ? (
+              <p style={{ color: '#6B7280', textAlign: 'center' }}>Carregando...</p>
+            ) : historico.length === 0 ? (
+              <p style={{ color: '#6B7280', textAlign: 'center', padding: '24px 0' }}>Nenhum aporte registrado ainda.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+                {historico.map(a => (
+                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: 13, color: '#9CA3AF' }}>
+                      {new Date(a.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: '#22c55e' }}>+ {fmt(a.valor)}</span>
+                  </div>
+                ))}
+                <div style={{ marginTop: 8, padding: '12px 16px', background: `${modalHistorico.cor}15`, borderRadius: 10, border: `1px solid ${modalHistorico.cor}30`, display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, color: modalHistorico.cor, fontWeight: 600 }}>Total em aportes</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: modalHistorico.cor }}>{fmt(historico.reduce((s, a) => s + a.valor, 0))}</span>
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => setModalHistorico(null)}
+              style={{ width: '100%', marginTop: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>
+              Fechar
+            </button>
           </div>
         </div>
       )}
