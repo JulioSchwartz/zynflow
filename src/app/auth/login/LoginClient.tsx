@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase'
 
 export default function LoginClient() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [erro, setErro] = useState('')
+  const [email, setEmail]   = useState('')
+  const [senha, setSenha]   = useState('')
+  const [erro, setErro]     = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleLogin() {
@@ -19,7 +19,24 @@ export default function LoginClient() {
       setLoading(false)
       return
     }
-    router.push('/dashboard')
+
+    // Verifica perfil do usuário
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data } = await supabase
+        .from('usuarios_flow')
+        .select('perfil')
+        .eq('user_id', user.id)
+        .single()
+
+      if (data?.perfil === 'pf') {
+        router.push('/pf/dashboard')
+      } else {
+        router.push('/dashboard')
+      }
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
