@@ -50,10 +50,14 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
       if (!user) { router.push('/auth/login'); return }
 
       const { data } = await supabase
-        .from('usuarios_flow')
-        .select('nome, setup_concluido, status, trial_ends_at')
-        .eq('user_id', user.id)
-        .single()
+                     .from('usuarios_flow')
+                     .select('nome, setup_concluido, status, trial_ends_at, perfil')
+                     .eq('user_id', user.id)
+                     .single()
+
+      if (data.perfil === 'pf' && !pathname.startsWith('/pf')) {
+                  router.push('/pf/dashboard'); return
+               }
 
       if (!data) { router.push('/auth/login'); return }
 
