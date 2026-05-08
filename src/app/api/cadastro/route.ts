@@ -10,7 +10,7 @@ const supabaseAdmin = () => createClient(
 )
 
 export async function POST(req: NextRequest) {
-  const { email, password, nome } = await req.json()
+  const { email, password, nome, perfil } = await req.json()
   const sb = supabaseAdmin()
 
   // Trial de 30 dias
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
         status:          'trial',
         trial_ends_at:   trialEndsAt.toISOString(),
         setup_concluido: false,
+        perfil:          perfil || 'autonomo',
       })
 
       await enviarEmailBoasVindas(email, nome, trialEndsAt)
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     status:          'trial',
     trial_ends_at:   trialEndsAt.toISOString(),
     setup_concluido: false,
+    perfil:          perfil || 'autonomo',
   })
 
   await enviarEmailBoasVindas(email, nome, trialEndsAt)
@@ -212,6 +214,10 @@ async function enviarNotificacaoInterna(email: string, nome: string, trialEndsAt
             <tr>
               <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:13px;">Trial até</td>
               <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:600;color:#818CF8;">${dataExpiracao}</td>
+            </tr>
+	    <tr>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:13px;">Perfil</td>
+              <td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:600;color:#10b981;">${perfil === 'pf' ? '💼 CLT/Assalariado' : '🚀 Autônomo'}</td>
             </tr>
             <tr>
               <td style="padding:12px 0;color:rgba(255,255,255,0.4);font-size:13px;">Data/hora</td>
