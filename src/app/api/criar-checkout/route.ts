@@ -11,19 +11,26 @@ const supabaseAdmin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+const PRICE_IDS = {
+  autonomo: 'price_1TTQTZPI61I7rxR2xph7S0Ht',
+  pf:       'price_1TVbmEPI61I7rxR20oLEJ50e',
+}
+
 export async function POST(req: NextRequest) {
   const { user_id, email, nome } = await req.json()
 
   const sb = supabaseAdmin()
 
-  // Verificar se já tem customer no Stripe
+  // Buscar customer e perfil do usuário
   const { data: usuario } = await sb
     .from('usuarios_flow')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, perfil')
     .eq('user_id', user_id)
     .single()
 
   let customerId = usuario?.stripe_customer_id
+  const perfil   = usuario?.perfil || 'autonomo'
+  const priceId  = PRICE_IDS[perfil as keyof typeof PRICE_IDS] ?? PRICE_IDS.autonomo
 
   // Criar customer se não existir
   if (!customerId) {
@@ -44,14 +51,15 @@ export async function POST(req: NextRequest) {
     customer: customerId,
     payment_method_types: ['card'],
     line_items: [{
-      price: 'price_1TTQTZPI61I7rxR2xph7S0Ht',
+      price:    priceId,
       quantity: 1,
     }],
-    mode: 'subscription',
+    mode:        'subscription',
     success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?assinatura=sucesso`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/assinar`,
-    locale: 'pt-BR',
-    metadata: { user_id },
+    cancel_url:  `${process.env.NEXT_PUBLIC_SITE_URL}/assinar`,
+    locale:      'pt-BR',
+    metadata:    { user_id, perfil },
+    allow_promotion_codes: true, // 👈 habilita o campo de cupom no checkout
   })
 
   return NextResponse.json({ url: session.url })
