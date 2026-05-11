@@ -53,6 +53,7 @@ export default function DashboardClient() {
   const [metas,      setMetas]        = useState<any[]>([])
   const [contas,     setContas]       = useState<any[]>([])
   const [loading,    setLoading]      = useState(true)
+  const [menuLancar, setMenuLancar]   = useState(false)
 
   useEffect(() => {
     async function carregar() {
@@ -106,12 +107,12 @@ export default function DashboardClient() {
   const restante       = tetoSemanal - diariasSemana
 
   const contasComSaldo = contas.map(c => {
-  const entradasConta  = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
-  const saidasDiarias  = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
-  const saidasFixas    = fixas.filter(f => f.conta_id === c.id && f.pago).reduce((s, f) => s + (f.valor_mensal || 0), 0)
-  const saidasVariaveis = variaveis.filter(v => v.conta_id === c.id && v.pago).reduce((s, v) => s + (v.valor_mensal || 0), 0)
-  return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasDiarias - saidasFixas - saidasVariaveis }
-})
+    const entradasConta   = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
+    const saidasDiarias   = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
+    const saidasFixas     = fixas.filter(f => f.conta_id === c.id && f.pago).reduce((s, f) => s + (f.valor_mensal || 0), 0)
+    const saidasVariaveis = variaveis.filter(v => v.conta_id === c.id && v.pago).reduce((s, v) => s + (v.valor_mensal || 0), 0)
+    return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasDiarias - saidasFixas - saidasVariaveis }
+  })
   const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
 
   const catMap: Record<string, number> = {}
@@ -154,30 +155,43 @@ export default function DashboardClient() {
             {diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)}, {dataBR} · Semana {semanaDoMes} do mês
           </p>
         </div>
-        <a href="/despesas/novo" style={{
-          background: INDIGO, color: '#fff', border: 'none',
-          borderRadius: 8, padding: '9px 18px', fontSize: 13,
-          fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
-        }}>+ Lançar</a>
+
+        {/* Botão + Lançar com dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMenuLancar(v => !v)}
+            style={{ background: INDIGO, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            + Lançar ▾
+          </button>
+          {menuLancar && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
+              <div style={{ position: 'absolute', right: 0, top: '110%', background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 8, zIndex: 100, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                {[
+                  { href: '/receitas',  icon: '💰', label: 'Nova receita' },
+                  { href: '/despesas',  icon: '💸', label: 'Nova despesa fixa' },
+                  { href: '/despesas',  icon: '🛒', label: 'Lançar gasto diário' },
+                  { href: '/contas',    icon: '🏦', label: 'Nova conta' },
+                  { href: '/metas',     icon: '🎯', label: 'Nova meta' },
+                  { href: '/reservas',  icon: '🛡️', label: 'Atualizar reservas' },
+                ].map(item => (
+                  <a key={item.label} href={item.href}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, color: '#E5E7EB', textDecoration: 'none', fontSize: 13 }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <span>{item.icon}</span>{item.label}
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Alerta teto semanal */}
       {pctTeto >= 60 && (
-        <div style={{
-          background: pctTeto >= 90 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
-          border: `1px solid ${pctTeto >= 90 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
-          borderRadius: 10, padding: '10px 14px',
-          display: 'flex', alignItems: 'center', gap: 10,
-          marginBottom: 16, fontSize: 13,
-          color: pctTeto >= 90 ? '#FCA5A5' : '#FCD34D',
-        }}>
+        <div style={{ background: pctTeto >= 90 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', border: `1px solid ${pctTeto >= 90 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontSize: 13, color: pctTeto >= 90 ? '#FCA5A5' : '#FCD34D' }}>
           <span>{pctTeto >= 90 ? '🚨' : '⚠️'}</span>
-          <span>
-            {pctTeto >= 100
-              ? `Teto semanal de diárias ultrapassado! Você gastou ${fmt(diariasSemana)} de ${fmt(tetoSemanal)}.`
-              : `Você está ${pctTeto}% do teto semanal de diárias. Restam ${fmt(restante)} esta semana.`
-            }
-          </span>
+          <span>{pctTeto >= 100 ? `Teto semanal de diárias ultrapassado! Você gastou ${fmt(diariasSemana)} de ${fmt(tetoSemanal)}.` : `Você está ${pctTeto}% do teto semanal de diárias. Restam ${fmt(restante)} esta semana.`}</span>
         </div>
       )}
 
@@ -191,61 +205,30 @@ export default function DashboardClient() {
 
       {/* Grid principal */}
       <div className="db-grid-main">
-        {/* Método 3 Passos */}
         <Card title="Método 3 Passos — este mês">
           {[
-            {
-              num: 'P1', nome: 'Receitas',
-              desc: `${receitas.length} fonte${receitas.length !== 1 ? 's' : ''} lançada${receitas.length !== 1 ? 's' : ''}`,
-              pct: totalPrevisto > 0 ? Math.round((totalRecebido / totalPrevisto) * 100) : 0,
-              cor: VERDE,
-            },
-            {
-              num: 'P2', nome: 'Gastos',
-              desc: `Fixas ${fmt(totalFixas)} + var. ${fmt(totalVariaveis)} + diárias ${fmt(totalDiarias)}`,
-              pct: totalRecebido > 0 ? Math.round((totalSaidas / totalRecebido) * 100) : 0,
-              cor: AMBER,
-            },
-            {
-              num: 'P3', nome: 'Reservas',
-              desc: 'Emergência + meses fracos + invest.',
-              pct: totalRecebido > 0 ? Math.round((totalReservado / totalRecebido) * 100) : 0,
-              cor: INDIGO,
-            },
+            { num: 'P1', nome: 'Receitas', desc: `${receitas.length} fonte${receitas.length !== 1 ? 's' : ''} lançada${receitas.length !== 1 ? 's' : ''}`, pct: totalPrevisto > 0 ? Math.round((totalRecebido / totalPrevisto) * 100) : 0, cor: VERDE },
+            { num: 'P2', nome: 'Gastos', desc: `Fixas ${fmt(totalFixas)} + var. ${fmt(totalVariaveis)} + diárias ${fmt(totalDiarias)}`, pct: totalRecebido > 0 ? Math.round((totalSaidas / totalRecebido) * 100) : 0, cor: AMBER },
+            { num: 'P3', nome: 'Reservas', desc: 'Emergência + meses fracos + invest.', pct: totalRecebido > 0 ? Math.round((totalReservado / totalRecebido) * 100) : 0, cor: INDIGO },
           ].map(p => (
-            <div key={p.num} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
-            }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: '50%',
-                background: 'rgba(79,70,229,0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 600, color: '#818CF8', flexShrink: 0,
-              }}>{p.num}</div>
+            <div key={p.num} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(79,70,229,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#818CF8', flexShrink: 0 }}>{p.num}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>{p.nome}</div>
-                <div style={{ fontSize: 11, color: '#6B7280' }}>{p.desc}</div>
+                <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.desc}</div>
+                <BarraProgresso pct={p.pct} cor={p.cor} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: p.cor }}>{p.pct}%</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: p.cor, flexShrink: 0 }}>{p.pct}%</span>
             </div>
           ))}
-
-          {/* Teto semanal */}
-          <div style={{
-            marginTop: 12, padding: '12px', borderRadius: 10,
-            background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)',
-          }}>
+          <div style={{ marginTop: 12, padding: '12px', borderRadius: 10, background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)' }}>
             <div style={{ fontSize: 11, color: '#9CA3AF' }}>Teto semanal de diárias</div>
             <div style={{ fontSize: 20, fontWeight: 600, color: INDIGO, margin: '3px 0' }}>{fmt(tetoSemanal)}</div>
             <BarraProgresso pct={pctTeto} cor={pctTeto >= 90 ? VERM : pctTeto >= 60 ? AMBER : INDIGO} />
-            <div style={{ fontSize: 11, color: '#6B7280' }}>
-              {fmt(diariasSemana)} gastos · {fmt(Math.max(restante, 0))} restantes esta semana
-            </div>
+            <div style={{ fontSize: 11, color: '#6B7280' }}>{fmt(diariasSemana)} gastos · {fmt(Math.max(restante, 0))} restantes esta semana</div>
           </div>
         </Card>
 
-        {/* Despesas fixas — status (mostra fixas ordenadas por vencimento) */}
         <Card title="Despesas fixas — status">
           {fixas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -254,14 +237,9 @@ export default function DashboardClient() {
             </div>
           ) : [...fixas].sort((a, b) => (a.dia_vencimento || 99) - (b.dia_vencimento || 99)).slice(0, 5).map(f => {
             const status = f.pago ? 'pago' : f.dia_vencimento && f.dia_vencimento <= new Date().getDate() ? 'vencida' : 'pendente'
-            const corPill = status === 'pago' ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80' }
-                          : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)', txt: '#FCA5A5' }
-                          : { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF' }
+            const corPill = status === 'pago' ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80' } : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)', txt: '#FCA5A5' } : { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF' }
             return (
-              <div key={f.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
-              }}>
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13 }}>
                 <div>
                   <div style={{ color: '#E5E7EB', fontWeight: 500 }}>{f.descricao}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}</div>
@@ -273,18 +251,12 @@ export default function DashboardClient() {
               </div>
             )
           })}
-          {fixas.length > 5 && (
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <a href="/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixas.length})</a>
-            </div>
-          )}
+          {fixas.length > 5 && <div style={{ textAlign: 'center', marginTop: 8 }}><a href="/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixas.length})</a></div>}
         </Card>
       </div>
 
       {/* Grid inferior */}
       <div className="db-grid-bottom">
-
-        {/* Diárias por categoria */}
         <Card title="Diárias por categoria">
           {cats.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -295,10 +267,7 @@ export default function DashboardClient() {
             const cores = [AMBER, '#8b5cf6', '#06b6d4', '#64748b', '#ec4899']
             const pct = totalDiarias > 0 ? Math.round((val / totalDiarias) * 100) : 0
             return (
-              <div key={cat} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
-              }}>
+              <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: cores[i], display: 'inline-block' }} />
                   <span style={{ color: '#E5E7EB' }}>{cat}</span>
@@ -312,7 +281,6 @@ export default function DashboardClient() {
           })}
         </Card>
 
-        {/* Metas */}
         <Card title="Metas financeiras">
           {metas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -328,18 +296,13 @@ export default function DashboardClient() {
                   <span style={{ fontSize: 11, color: '#6B7280' }}>{fmt(m.valor_atual)} / {fmt(m.valor_alvo)}</span>
                 </div>
                 <BarraProgresso pct={pct} cor={m.cor || INDIGO} />
-                <div style={{ fontSize: 11, color: '#6B7280' }}>
-                  {pct}%{m.prazo ? ` · Prazo: ${new Date(m.prazo + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}` : ''}
-                </div>
+                <div style={{ fontSize: 11, color: '#6B7280' }}>{pct}%{m.prazo ? ` · Prazo: ${new Date(m.prazo + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}` : ''}</div>
               </div>
             )
           })}
-          <a href="/metas" style={{ fontSize: 12, color: '#818CF8', display: 'block', textAlign: 'center', marginTop: 4 }}>
-            Ver todas as metas →
-          </a>
+          <a href="/metas" style={{ fontSize: 12, color: '#818CF8', display: 'block', textAlign: 'center', marginTop: 4 }}>Ver todas as metas →</a>
         </Card>
 
-        {/* Contas */}
         <Card title="Contas bancárias">
           {contasComSaldo.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -347,19 +310,9 @@ export default function DashboardClient() {
               <a href="/contas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar conta</a>
             </div>
           ) : contasComSaldo.map(c => (
-            <div key={c.id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
-            }}>
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8,
-                  background: `${c.cor || INDIGO}20`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 600, color: c.cor || INDIGO,
-                }}>
-                  {c.nome.slice(0, 2).toUpperCase()}
-                </div>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${c.cor || INDIGO}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: c.cor || INDIGO }}>{c.nome.slice(0, 2).toUpperCase()}</div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB' }}>{c.nome}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{c.tipo}</div>
@@ -369,16 +322,12 @@ export default function DashboardClient() {
             </div>
           ))}
           {contasComSaldo.length > 0 && (
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)',
-            }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
               <span style={{ fontSize: 12, color: '#6B7280' }}>Saldo total</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{fmt(saldoTotal)}</span>
             </div>
           )}
         </Card>
-
       </div>
     </div>
   )

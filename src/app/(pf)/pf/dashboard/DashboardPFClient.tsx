@@ -51,6 +51,7 @@ export default function DashboardPFClient() {
   const [metas,       setMetas]       = useState<any[]>([])
   const [contas,      setContas]      = useState<any[]>([])
   const [loading,     setLoading]     = useState(true)
+  const [menuLancar,  setMenuLancar]  = useState(false)
 
   const hoje      = new Date()
   const diaSemana = hoje.toLocaleDateString('pt-BR', { weekday: 'long' })
@@ -103,7 +104,6 @@ export default function DashboardPFClient() {
   })
   const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
 
-  // Distribuição de gastos por tipo
   const pctFixas     = totalRecebido > 0 ? Math.round((totalFixas / totalRecebido) * 100) : 0
   const pctVariaveis = totalRecebido > 0 ? Math.round((totalVariaveis / totalRecebido) * 100) : 0
   const pctDiarias   = totalRecebido > 0 ? Math.round((totalDiarias / totalRecebido) * 100) : 0
@@ -146,29 +146,44 @@ export default function DashboardPFClient() {
             {diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)}, {dataBR}
           </p>
         </div>
-        <a href="/pf/despesas" style={{
-          background: INDIGO, color: '#fff', border: 'none',
-          borderRadius: 8, padding: '9px 18px', fontSize: 13,
-          fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
-        }}>+ Lançar</a>
+
+        {/* Botão + Lançar com dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMenuLancar(v => !v)}
+            style={{ background: INDIGO, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            + Lançar ▾
+          </button>
+          {menuLancar && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
+              <div style={{ position: 'absolute', right: 0, top: '110%', background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 8, zIndex: 100, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                {[
+                  { href: '/pf/receitas',      icon: '💰', label: 'Nova receita' },
+                  { href: '/pf/despesas',      icon: '💸', label: 'Nova despesa fixa' },
+                  { href: '/pf/despesas',      icon: '🛒', label: 'Lançar gasto diário' },
+                  { href: '/pf/contas',        icon: '🏦', label: 'Nova conta' },
+                  { href: '/pf/metas',         icon: '🎯', label: 'Nova meta' },
+                  { href: '/pf/reservas',      icon: '🛡️', label: 'Atualizar reservas' },
+                  { href: '/pf/investimentos', icon: '📈', label: 'Nova operação' },
+                ].map(item => (
+                  <a key={item.label} href={item.href}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, color: '#E5E7EB', textDecoration: 'none', fontSize: 13 }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <span>{item.icon}</span>{item.label}
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Alerta se gastos > 90% da renda */}
+      {/* Alerta gastos > 90% */}
       {pctTotal >= 90 && totalRecebido > 0 && (
-        <div style={{
-          background: pctTotal >= 100 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
-          border: `1px solid ${pctTotal >= 100 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
-          borderRadius: 10, padding: '10px 14px',
-          display: 'flex', alignItems: 'center', gap: 10,
-          marginBottom: 16, fontSize: 13,
-          color: pctTotal >= 100 ? '#FCA5A5' : '#FCD34D',
-        }}>
+        <div style={{ background: pctTotal >= 100 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', border: `1px solid ${pctTotal >= 100 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontSize: 13, color: pctTotal >= 100 ? '#FCA5A5' : '#FCD34D' }}>
           <span>{pctTotal >= 100 ? '🚨' : '⚠️'}</span>
-          <span>
-            {pctTotal >= 100
-              ? `Seus gastos ultrapassaram sua renda este mês! (${pctTotal}%)`
-              : `Seus gastos estão em ${pctTotal}% da sua renda. Atenção!`}
-          </span>
+          <span>{pctTotal >= 100 ? `Seus gastos ultrapassaram sua renda este mês! (${pctTotal}%)` : `Seus gastos estão em ${pctTotal}% da sua renda. Atenção!`}</span>
         </div>
       )}
 
@@ -182,13 +197,11 @@ export default function DashboardPFClient() {
 
       {/* Grid principal */}
       <div className="db-grid-main">
-
-        {/* Visão geral dos gastos */}
         <Card title="Visão geral dos gastos — este mês">
           {[
-            { label: 'Despesas fixas',    valor: totalFixas,     pct: pctFixas,     cor: AMBER },
+            { label: 'Despesas fixas',     valor: totalFixas,     pct: pctFixas,     cor: AMBER },
             { label: 'Despesas variáveis', valor: totalVariaveis, pct: pctVariaveis, cor: '#8b5cf6' },
-            { label: 'Gastos diários',    valor: totalDiarias,   pct: pctDiarias,   cor: VERM },
+            { label: 'Gastos diários',     valor: totalDiarias,   pct: pctDiarias,   cor: VERM },
           ].map(item => (
             <div key={item.label} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
@@ -211,7 +224,6 @@ export default function DashboardPFClient() {
           </div>
         </Card>
 
-        {/* Despesas fixas */}
         <Card title="Despesas fixas — status">
           {fixas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -220,9 +232,7 @@ export default function DashboardPFClient() {
             </div>
           ) : [...fixas].sort((a, b) => (a.dia_vencimento || 99) - (b.dia_vencimento || 99)).slice(0, 5).map(f => {
             const status = f.pago ? 'pago' : f.dia_vencimento && f.dia_vencimento <= new Date().getDate() ? 'vencida' : 'pendente'
-            const corPill = status === 'pago'    ? { bg: 'rgba(34,197,94,0.1)',  txt: '#4ade80'  }
-                          : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)',  txt: '#FCA5A5'  }
-                          :                        { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF' }
+            const corPill = status === 'pago' ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80' } : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)', txt: '#FCA5A5' } : { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF' }
             return (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13 }}>
                 <div>
@@ -236,18 +246,12 @@ export default function DashboardPFClient() {
               </div>
             )
           })}
-          {fixas.length > 5 && (
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <a href="/pf/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixas.length})</a>
-            </div>
-          )}
+          {fixas.length > 5 && <div style={{ textAlign: 'center', marginTop: 8 }}><a href="/pf/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixas.length})</a></div>}
         </Card>
       </div>
 
       {/* Grid inferior */}
       <div className="db-grid-bottom">
-
-        {/* Gastos por categoria */}
         <Card title="Gastos por categoria">
           {cats.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -272,7 +276,6 @@ export default function DashboardPFClient() {
           })}
         </Card>
 
-        {/* Metas */}
         <Card title="Metas financeiras">
           {metas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -288,18 +291,13 @@ export default function DashboardPFClient() {
                   <span style={{ fontSize: 11, color: '#6B7280' }}>{fmt(m.valor_atual)} / {fmt(m.valor_alvo)}</span>
                 </div>
                 <BarraProgresso pct={pct} cor={m.cor || INDIGO} />
-                <div style={{ fontSize: 11, color: '#6B7280' }}>
-                  {pct}%{m.prazo ? ` · Prazo: ${new Date(m.prazo + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}` : ''}
-                </div>
+                <div style={{ fontSize: 11, color: '#6B7280' }}>{pct}%{m.prazo ? ` · Prazo: ${new Date(m.prazo + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}` : ''}</div>
               </div>
             )
           })}
-          <a href="/pf/metas" style={{ fontSize: 12, color: '#818CF8', display: 'block', textAlign: 'center', marginTop: 4 }}>
-            Ver todas as metas →
-          </a>
+          <a href="/pf/metas" style={{ fontSize: 12, color: '#818CF8', display: 'block', textAlign: 'center', marginTop: 4 }}>Ver todas as metas →</a>
         </Card>
 
-        {/* Contas */}
         <Card title="Contas bancárias">
           {contasComSaldo.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -309,9 +307,7 @@ export default function DashboardPFClient() {
           ) : contasComSaldo.map(c => (
             <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${c.cor || INDIGO}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: c.cor || INDIGO }}>
-                  {c.nome.slice(0, 2).toUpperCase()}
-                </div>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${c.cor || INDIGO}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: c.cor || INDIGO }}>{c.nome.slice(0, 2).toUpperCase()}</div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB' }}>{c.nome}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{c.tipo}</div>
@@ -327,7 +323,6 @@ export default function DashboardPFClient() {
             </div>
           )}
         </Card>
-
       </div>
     </div>
   )
