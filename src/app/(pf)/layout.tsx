@@ -15,7 +15,8 @@ const MENU = [
   { label: 'Planejamento', items: [
     { href: '/pf/reservas',      icon: '◎', nome: 'Reservas' },
     { href: '/pf/metas',         icon: '◇', nome: 'Metas' },
-    { href: '/pf/investimentos',  icon: '◈', nome: 'Investimentos' },
+    { href: '/pf/investimentos', icon: '◈', nome: 'Investimentos' },
+    { href: '/pf/irpf',          icon: '📋', nome: 'IRPF' },
     { href: '/pf/checklist',     icon: '✓', nome: 'Checklist' },
     { href: '/pf/historico',     icon: '≡', nome: 'Histórico' },
   ]},
@@ -58,7 +59,6 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
 
       if (!data) { router.push('/auth/login'); return }
 
-      // Se for autônomo tentando acessar área PF, redireciona
       if (data.perfil === 'autonomo') {
         router.push('/dashboard'); return
       }
@@ -220,7 +220,12 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
         <span style={{ fontSize: 12, color: '#6B7280', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', padding: '4px 12px', borderRadius: 100 }}>{mes}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className="zf-topbar-nome" style={{ fontSize: 13, color: '#9CA3AF' }}>{nomeUsuario}</span>
-          <div onClick={sair} title="Sair" style={{ width: 32, height: 32, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+          {/* Botão Sair visível */}
+          <button onClick={sair}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>→</span> Sair
+          </button>
+          <div title={nomeUsuario} style={{ width: 32, height: 32, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#fff' }}>
             {iniciais || 'Z'}
           </div>
         </div>
@@ -263,7 +268,7 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
           <div style={{ margin: '12px 12px 0' }}>
             <a href={MANUAL_URL} target="_blank" rel="noopener noreferrer"
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', fontSize: 13, color: '#6B7280', textDecoration: 'none', fontWeight: 400 }}>
-              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#128214;</span>
+              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>📖</span>
               Manual
             </a>
           </div>
