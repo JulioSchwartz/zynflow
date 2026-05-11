@@ -60,21 +60,25 @@ export default function LoginClient() {
   }
 
   async function handleReset() {
-    setResetErro('')
-    if (!emailReset.trim()) { setResetErro('Informe seu e-mail.'); return }
-    setResetLoading(true)
+  setResetErro('')
+  if (!emailReset.trim()) { setResetErro('Informe seu e-mail.'); return }
+  setResetLoading(true)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(emailReset, {
-      redirectTo: `${window.location.origin}/auth/nova-senha`,
-    })
+  const res = await fetch('/api/reset-senha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: emailReset }),
+  })
 
-    setResetLoading(false)
-    if (error) {
-      setResetErro('Erro ao enviar e-mail. Verifique o endereço e tente novamente.')
-      return
-    }
-    setResetOk(true)
+  setResetLoading(false)
+
+  if (!res.ok) {
+    setResetErro('Erro ao enviar e-mail. Verifique o endereço e tente novamente.')
+    return
   }
+
+  setResetOk(true)
+}
 
   const inp: React.CSSProperties = {
     width: '100%', background: '#07080F',
