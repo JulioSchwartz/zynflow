@@ -9,7 +9,7 @@ const MESES  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','A
 
 const CATS_FIXA    = ['Moradia','Financiamento','Plano de Saúde','Educação','Assinaturas','Seguros','Investimento Fixo','Impostos/MEI','Outro']
 const CATS_VARIAVEL = ['Cartão de Crédito','Conta de Luz','Água/Gás','Condomínio','Combustível','Internet/Telefone','Supermercado','Outro']
-const CATS_DIARIA  = ['Restaurante','Delivery','Lazer','Roupas','Farmácia','Presente','Viagem','Outro']
+const CATS_DIARIA  = ['Restaurante','Delivery','Mercado','Lazer','Roupas','Farmácia','Presente','Viagem','Outro']
 
 function fmt(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 
