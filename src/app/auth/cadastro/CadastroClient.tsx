@@ -80,7 +80,7 @@ export default function CadastroClient() {
     if (loginError) { router.push('/auth/login'); return }
 
     if (data.jaExistia) router.push('/dashboard')
-    else router.push('/setup')
+    else router.push(perfil === 'pf' ? '/pf/setup' : '/setup')
   }
 
   const inp: React.CSSProperties = {
