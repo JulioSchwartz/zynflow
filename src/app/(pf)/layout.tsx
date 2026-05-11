@@ -7,18 +7,18 @@ const MANUAL_URL = 'https://cpyvksnsfihybemvxvap.supabase.co/storage/v1/object/p
 
 const MENU = [
   { label: 'Principal', items: [
-    { href: '/pf/dashboard',     icon: '◉', nome: 'Dashboard' },
-    { href: '/pf/receitas',      icon: '↑', nome: 'Receitas' },
-    { href: '/pf/despesas',      icon: '↓', nome: 'Despesas' },
-    { href: '/pf/contas',        icon: '◈', nome: 'Contas' },
+    { href: '/pf/dashboard',     icon: '🏠', nome: 'Dashboard' },
+    { href: '/pf/receitas',      icon: '💰', nome: 'Receitas' },
+    { href: '/pf/despesas',      icon: '💸', nome: 'Despesas' },
+    { href: '/pf/contas',        icon: '🏦', nome: 'Contas' },
   ]},
   { label: 'Planejamento', items: [
-    { href: '/pf/reservas',      icon: '◎', nome: 'Reservas' },
-    { href: '/pf/metas',         icon: '◇', nome: 'Metas' },
-    { href: '/pf/investimentos', icon: '◈', nome: 'Investimentos' },
+    { href: '/pf/reservas',      icon: '🛡️', nome: 'Reservas' },
+    { href: '/pf/metas',         icon: '🎯', nome: 'Metas' },
+    { href: '/pf/investimentos', icon: '📈', nome: 'Investimentos' },
     { href: '/pf/irpf',          icon: '📋', nome: 'IRPF' },
-    { href: '/pf/checklist',     icon: '✓', nome: 'Checklist' },
-    { href: '/pf/historico',     icon: '≡', nome: 'Histórico' },
+    { href: '/pf/checklist',     icon: '✅', nome: 'Checklist' },
+    { href: '/pf/historico',     icon: '📂', nome: 'Histórico' },
   ]},
 ]
 
