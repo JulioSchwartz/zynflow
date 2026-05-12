@@ -307,7 +307,7 @@ export default function ContasPFClient() {
                 type="text" inputMode="decimal"
                 value={saldoStr}
                 onFocus={e => { if (e.target.value === '0') setSaldoStr('') }}
-                onChange={e => setSaldoStr(e.target.value)}}
+                onChange={e => setSaldoStr(e.target.value)}
                 placeholder="0,00"
                 style={inp} />
             </div>
