@@ -323,7 +323,7 @@ export default function LandingPage() {
         </div>
 
         <div className="func-grid reveal">
-          {isAutonomo ? [
+          {(isAutonomo ? [
             { icon: '📊', title: 'Dashboard com Método 3 Passos', desc: 'P1 Receitas, P2 Gastos e P3 Reservas em um só lugar. Visão completa do mês atualizada em tempo real.' },
             { icon: '🎯', title: 'Perspectiva financeira', desc: 'O sistema calcula quanto você precisa guardar por mês para atingir seu objetivo em X meses.' },
             { icon: '📦', title: 'Fundo de Meses Fracos', desc: 'O diferencial exclusivo do Zynflow. Guarde nos meses bons e sobreviva nos ruins sem entrar no vermelho.' },
@@ -341,7 +341,7 @@ export default function LandingPage() {
             { icon: '🎯', title: 'Metas financeiras', desc: 'Defina objetivos e acompanhe o progresso. Aposentadoria, imóvel, reserva — com prazo e aporte mensal.' },
             { icon: '🏦', title: 'Contas bancárias', desc: 'Cadastre suas contas e acompanhe saldo de cada uma. Inclui salário, conta investimento e poupança.' },
             { icon: '✅', title: 'Checklist financeiro', desc: 'Lista de ações mensais para manter sua saúde financeira em dia. Do lançamento do salário ao IR.' },
-          ].map(f => (
+          ]).map(f => (
             <div key={f.title} className="func-card">
               <div className="func-icon">{f.icon}</div>
               <div className="func-title">{f.title}</div>
