@@ -32,6 +32,7 @@ export default function ContasClient() {
   const [modal, setModal]       = useState(false)
   const [editando, setEditando] = useState<Conta | null>(null)
   const [form, setForm]         = useState<Omit<Conta, 'id'>>(VAZIO)
+  const [saldoStr, setSaldoStr] = useState('')   // campo texto para aceitar vírgula
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro]         = useState('')
 
@@ -58,12 +59,13 @@ export default function ContasClient() {
   }, [])
 
   function abrirNova() {
-    setEditando(null); setForm(VAZIO); setErro(''); setModal(true)
+    setEditando(null); setForm(VAZIO); setSaldoStr(''); setErro(''); setModal(true)
   }
 
   function abrirEditar(c: Conta) {
     setEditando(c)
     setForm({ nome: c.nome, tipo: c.tipo, banco: c.banco || '', cor: c.cor, saldo_inicial: c.saldo_inicial })
+    setSaldoStr(c.saldo_inicial === 0 ? '' : String(c.saldo_inicial).replace('.', ','))
     setErro(''); setModal(true)
   }
 
@@ -80,17 +82,18 @@ export default function ContasClient() {
   async function salvar() {
     if (!form.nome.trim()) { setErro('Informe o nome da conta.'); return }
     setSalvando(true); setErro('')
+    const saldoNumerico = parseFloat(saldoStr.replace(',', '.')) || 0
 
     if (editando) {
       const { error } = await supabase.from('contas_flow').update({
-        nome: form.nome, tipo: form.tipo, banco: form.banco, cor: form.cor, saldo_inicial: form.saldo_inicial,
+        nome: form.nome, tipo: form.tipo, banco: form.banco, cor: form.cor, saldo_inicial: saldoNumerico,
       }).eq('id', editando.id)
       if (error) { setErro('Erro ao salvar.'); setSalvando(false); return }
-      setContas(prev => prev.map(c => c.id === editando.id ? { ...c, ...form } : c))
+      setContas(prev => prev.map(c => c.id === editando.id ? { ...c, ...form, saldo_inicial: saldoNumerico } : c))
     } else {
       const { data, error } = await supabase.from('contas_flow').insert({
         user_id: userId, nome: form.nome, tipo: form.tipo,
-        banco: form.banco, cor: form.cor, saldo_inicial: form.saldo_inicial,
+        banco: form.banco, cor: form.cor, saldo_inicial: saldoNumerico,
       }).select().single()
       if (error) { setErro('Erro ao salvar.'); setSalvando(false); return }
       setContas(prev => [...prev, data])
@@ -325,10 +328,10 @@ export default function ContasClient() {
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Saldo inicial (R$)</label>
               <input
-                type="text" inputMode="numeric"
-                value={form.saldo_inicial === 0 ? '' : form.saldo_inicial}
-                onFocus={e => { if (e.target.value === '0') setForm(p => ({ ...p, saldo_inicial: 0 })) }}
-                onChange={e => setForm(p => ({ ...p, saldo_inicial: parseFloat(e.target.value.replace(',', '.')) || 0 }))}
+                type="text" inputMode="decimal"
+                value={saldoStr}
+                onFocus={e => { if (e.target.value === '0') setSaldoStr('') }}
+                onChange={e => setSaldoStr(e.target.value)}
                 placeholder="0,00"
                 style={inp}
               />
