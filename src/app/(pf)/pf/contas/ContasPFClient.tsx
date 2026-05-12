@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const INDIGO = '#4F46E5'
+const VERDE  = '#22c55e'
 const TIPOS = ['corrente', 'poupanca', 'carteira', 'investimento', 'outro']
 const CORES = ['#4F46E5','#7C3AED','#DB2777','#DC2626','#D97706','#059669','#0891B2','#374151']
 const BANCOS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Sicoob','XP','Rico','Outro']
@@ -23,14 +24,26 @@ interface Conta {
 const VAZIO: Omit<Conta, 'id'> = { nome: '', tipo: 'corrente', banco: '', cor: INDIGO, saldo_inicial: 0 }
 
 export default function ContasPFClient() {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [contas, setContas] = useState<Conta[]>([])
+  const [userId, setUserId]   = useState<string | null>(null)
+  const [contas, setContas]   = useState<Conta[]>([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(false)
+
+  // Modal nova/editar conta
+  const [modal, setModal]       = useState(false)
   const [editando, setEditando] = useState<Conta | null>(null)
-  const [form, setForm] = useState<Omit<Conta, 'id'>>(VAZIO)
+  const [form, setForm]         = useState<Omit<Conta, 'id'>>(VAZIO)
   const [salvando, setSalvando] = useState(false)
-  const [erro, setErro] = useState('')
+  const [erro, setErro]         = useState('')
+
+  // Modal transferência
+  const [modalTransf, setModalTransf]       = useState(false)
+  const [transfOrigem, setTransfOrigem]     = useState('')
+  const [transfDestino, setTransfDestino]   = useState('')
+  const [transfValor, setTransfValor]       = useState('')
+  const [transfData, setTransfData]         = useState(new Date().toISOString().split('T')[0])
+  const [transfObs, setTransfObs]           = useState('')
+  const [salvandoTransf, setSalvandoTransf] = useState(false)
+  const [erroTransf, setErroTransf]         = useState('')
 
   useEffect(() => {
     async function carregar() {
@@ -45,23 +58,28 @@ export default function ContasPFClient() {
   }, [])
 
   function abrirNova() {
-    setEditando(null)
-    setForm(VAZIO)
-    setErro('')
-    setModal(true)
+    setEditando(null); setForm(VAZIO); setErro(''); setModal(true)
   }
 
   function abrirEditar(c: Conta) {
     setEditando(c)
     setForm({ nome: c.nome, tipo: c.tipo, banco: c.banco || '', cor: c.cor, saldo_inicial: c.saldo_inicial })
-    setErro('')
-    setModal(true)
+    setErro(''); setModal(true)
+  }
+
+  function abrirTransferencia() {
+    setTransfOrigem(contas[0]?.id || '')
+    setTransfDestino(contas[1]?.id || '')
+    setTransfValor('')
+    setTransfData(new Date().toISOString().split('T')[0])
+    setTransfObs('')
+    setErroTransf('')
+    setModalTransf(true)
   }
 
   async function salvar() {
     if (!form.nome.trim()) { setErro('Informe o nome da conta.'); return }
-    setSalvando(true)
-    setErro('')
+    setSalvando(true); setErro('')
 
     if (editando) {
       const { error } = await supabase.from('contas_flow').update({
@@ -77,8 +95,45 @@ export default function ContasPFClient() {
       if (error) { setErro('Erro ao salvar.'); setSalvando(false); return }
       setContas(prev => [...prev, data])
     }
-    setSalvando(false)
-    setModal(false)
+    setSalvando(false); setModal(false)
+  }
+
+  async function confirmarTransferencia() {
+    const valor = parseFloat(transfValor.replace(',', '.')) || 0
+    if (!transfOrigem)                     { setErroTransf('Selecione a conta de origem.'); return }
+    if (!transfDestino)                    { setErroTransf('Selecione a conta de destino.'); return }
+    if (transfOrigem === transfDestino)    { setErroTransf('Origem e destino não podem ser a mesma conta.'); return }
+    if (valor <= 0)                        { setErroTransf('Informe um valor válido.'); return }
+
+    setSalvandoTransf(true); setErroTransf('')
+
+    const contaOrig = contas.find(c => c.id === transfOrigem)
+    const contaDest = contas.find(c => c.id === transfDestino)
+    if (!contaOrig || !contaDest) { setErroTransf('Conta não encontrada.'); setSalvandoTransf(false); return }
+
+    const [r1, r2] = await Promise.all([
+      supabase.from('contas_flow').update({ saldo_inicial: contaOrig.saldo_inicial - valor }).eq('id', transfOrigem),
+      supabase.from('contas_flow').update({ saldo_inicial: contaDest.saldo_inicial + valor }).eq('id', transfDestino),
+    ])
+
+    if (r1.error || r2.error) { setErroTransf('Erro ao realizar transferência.'); setSalvandoTransf(false); return }
+
+    await supabase.from('transferencias_flow').insert({
+      user_id: userId,
+      conta_origem_id: transfOrigem,
+      conta_destino_id: transfDestino,
+      valor,
+      data: transfData,
+      observacoes: transfObs || null,
+    })
+
+    setContas(prev => prev.map(c => {
+      if (c.id === transfOrigem) return { ...c, saldo_inicial: c.saldo_inicial - valor }
+      if (c.id === transfDestino) return { ...c, saldo_inicial: c.saldo_inicial + valor }
+      return c
+    }))
+
+    setSalvandoTransf(false); setModalTransf(false)
   }
 
   async function excluir(id: string) {
@@ -89,32 +144,24 @@ export default function ContasPFClient() {
 
   const saldoTotal = contas.reduce((s, c) => s + (c.saldo_inicial || 0), 0)
 
+  const inp: React.CSSProperties = {
+    width: '100%', background: '#07080F',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 8, padding: '10px 14px',
+    fontSize: 14, color: '#fff', outline: 'none',
+    boxSizing: 'border-box',
+  }
+
   if (loading) return <div style={{ color: '#6B7280', padding: 40, textAlign: 'center' }}>Carregando...</div>
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
       <style>{`
-        .contas-card-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .contas-card-right {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-          flex-shrink: 0;
-        }
+        .contas-card-row { display: flex; align-items: center; justify-content: space-between; }
+        .contas-card-right { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
         @media (max-width: 768px) {
-          .contas-card-row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-          }
-          .contas-card-right {
-            width: 100%;
-            justify-content: space-between;
-          }
+          .contas-card-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+          .contas-card-right { width: 100%; justify-content: space-between; }
         }
       `}</style>
 
@@ -123,11 +170,21 @@ export default function ContasPFClient() {
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>Contas bancárias</h1>
           <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Gerencie suas contas e carteiras</p>
         </div>
-        <button onClick={abrirNova} style={{
-          background: INDIGO, color: '#fff', border: 'none',
-          borderRadius: 8, padding: '9px 18px', fontSize: 13,
-          fontWeight: 600, cursor: 'pointer',
-        }}>+ Nova conta</button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const }}>
+          {contas.length >= 2 && (
+            <button onClick={abrirTransferencia} style={{
+              background: 'rgba(34,197,94,0.1)', color: VERDE,
+              border: '1px solid rgba(34,197,94,0.25)',
+              borderRadius: 8, padding: '9px 16px', fontSize: 13,
+              fontWeight: 600, cursor: 'pointer',
+            }}>⇄ Transferir</button>
+          )}
+          <button onClick={abrirNova} style={{
+            background: INDIGO, color: '#fff', border: 'none',
+            borderRadius: 8, padding: '9px 18px', fontSize: 13,
+            fontWeight: 600, cursor: 'pointer',
+          }}>+ Nova conta</button>
+        </div>
       </div>
 
       {/* Saldo total */}
@@ -184,7 +241,7 @@ export default function ContasPFClient() {
                 <div className="contas-card-right">
                   <div style={{ textAlign: 'right' as const }}>
                     <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>{fmt(c.saldo_inicial)}</div>
-                    <div style={{ fontSize: 11, color: '#6B7280' }}>saldo inicial</div>
+                    <div style={{ fontSize: 11, color: '#6B7280' }}>saldo atual</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => abrirEditar(c)} style={{
@@ -203,7 +260,7 @@ export default function ContasPFClient() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal nova/editar conta */}
       {modal && (
         <div style={{
           position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)',
@@ -211,7 +268,7 @@ export default function ContasPFClient() {
         }} onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div style={{
             background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16, padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto',
+            borderRadius: 16, padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' as const,
           }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 24 }}>
               {editando ? 'Editar conta' : 'Nova conta'}
@@ -219,27 +276,22 @@ export default function ContasPFClient() {
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Nome da conta *</label>
-              <input
-                type="text"
-                value={form.nome}
+              <input type="text" value={form.nome}
                 onChange={e => setForm(p => ({ ...p, nome: e.target.value }))}
                 placeholder="Ex: Nubank, Carteira, Poupança"
-                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }}
-              />
+                style={inp} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
               <div>
                 <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Tipo</label>
-                <select value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value }))}
-                  style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none' }}>
+                <select value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value }))} style={inp}>
                   {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Banco</label>
-                <select value={form.banco || ''} onChange={e => setForm(p => ({ ...p, banco: e.target.value }))}
-                  style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none' }}>
+                <select value={form.banco || ''} onChange={e => setForm(p => ({ ...p, banco: e.target.value }))} style={inp}>
                   <option value="">Selecione...</option>
                   {BANCOS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
@@ -249,16 +301,17 @@ export default function ContasPFClient() {
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Saldo inicial (R$)</label>
               <input
-                type="number"
-                value={form.saldo_inicial}
-                onChange={e => setForm(p => ({ ...p, saldo_inicial: parseFloat(e.target.value) || 0 }))}
-                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }}
-              />
+                type="text" inputMode="numeric"
+                value={form.saldo_inicial === 0 ? '' : form.saldo_inicial}
+                onFocus={e => { if (e.target.value === '0') setForm(p => ({ ...p, saldo_inicial: 0 })) }}
+                onChange={e => setForm(p => ({ ...p, saldo_inicial: parseFloat(e.target.value.replace(',', '.')) || 0 }))}
+                placeholder="0,00"
+                style={inp} />
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 8 }}>Cor</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
                 {CORES.map(cor => (
                   <div key={cor} onClick={() => setForm(p => ({ ...p, cor }))}
                     style={{ width: 28, height: 28, borderRadius: '50%', background: cor, cursor: 'pointer',
@@ -273,6 +326,83 @@ export default function ContasPFClient() {
               <button onClick={() => setModal(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Cancelar</button>
               <button onClick={salvar} disabled={salvando} style={{ flex: 1, background: INDIGO, border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', opacity: salvando ? 0.7 : 1 }}>
                 {salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal transferência */}
+      {modalTransf && (
+        <div style={{
+          position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px',
+        }} onClick={e => e.target === e.currentTarget && setModalTransf(false)}>
+          <div style={{
+            background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 16, padding: 24, width: '100%', maxWidth: 440,
+          }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 4 }}>Transferência entre contas</h2>
+            <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 24 }}>Mova saldo de uma conta para outra.</p>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Origem (debitar de)</label>
+              <select value={transfOrigem} onChange={e => setTransfOrigem(e.target.value)} style={inp}>
+                <option value="">Selecione...</option>
+                {contas.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.banco ? `${c.banco} · ${c.nome}` : c.nome} — {fmt(c.saldo_inicial)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: 20, color: '#4B5563', marginBottom: 16 }}>↓</div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Destino (creditar em)</label>
+              <select value={transfDestino} onChange={e => setTransfDestino(e.target.value)} style={inp}>
+                <option value="">Selecione...</option>
+                {contas.filter(c => c.id !== transfOrigem).map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.banco ? `${c.banco} · ${c.nome}` : c.nome} — {fmt(c.saldo_inicial)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Valor (R$) *</label>
+                <input
+                  type="text" inputMode="numeric"
+                  value={transfValor}
+                  onFocus={e => { if (e.target.value === '0') setTransfValor('') }}
+                  onChange={e => setTransfValor(e.target.value)}
+                  placeholder="0,00"
+                  autoFocus
+                  style={inp} />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Data</label>
+                <input type="date" value={transfData} onChange={e => setTransfData(e.target.value)} style={inp} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Observações</label>
+              <input value={transfObs} onChange={e => setTransfObs(e.target.value)}
+                placeholder="Opcional..." style={inp} />
+            </div>
+
+            {erroTransf && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#FCA5A5', marginBottom: 16 }}>{erroTransf}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setModalTransf(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={confirmarTransferencia} disabled={salvandoTransf} style={{ flex: 1, background: VERDE, border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', opacity: salvandoTransf ? 0.7 : 1 }}>
+                {salvandoTransf ? 'Transferindo...' : 'Confirmar transferência'}
               </button>
             </div>
           </div>

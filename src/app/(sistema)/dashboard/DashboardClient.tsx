@@ -137,11 +137,29 @@ export default function DashboardClient() {
         .db-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
         .db-grid-main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
         .db-grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .db-lancar-menu {
+          position: absolute;
+          right: 0;
+          top: 110%;
+          background: #0D0F1A;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          padding: 8px;
+          z-index: 100;
+          min-width: 210px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
         @media (max-width: 768px) {
           .db-header { flex-direction: column; gap: 12px; }
           .db-kpis { grid-template-columns: repeat(2, 1fr); }
           .db-grid-main { grid-template-columns: 1fr; }
           .db-grid-bottom { grid-template-columns: 1fr; }
+          .db-lancar-menu {
+            right: auto;
+            left: 0;
+            min-width: 200px;
+            max-width: calc(100vw - 48px);
+          }
         }
       `}</style>
 
@@ -157,20 +175,21 @@ export default function DashboardClient() {
         </div>
 
         {/* Botão + Lançar com dropdown */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' as const }}>
           <button onClick={() => setMenuLancar(v => !v)}
             style={{ background: INDIGO, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             + Lançar ▾
           </button>
           {menuLancar && (
             <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
-              <div style={{ position: 'absolute', right: 0, top: '110%', background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 8, zIndex: 100, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+              <div style={{ position: 'fixed' as const, inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
+              <div className="db-lancar-menu">
                 {[
                   { href: '/receitas',  icon: '💰', label: 'Nova receita' },
                   { href: '/despesas',  icon: '💸', label: 'Nova despesa fixa' },
                   { href: '/despesas',  icon: '🛒', label: 'Lançar gasto diário' },
                   { href: '/contas',    icon: '🏦', label: 'Nova conta' },
+                  { href: '/contas',    icon: '⇄',  label: 'Transferir entre contas' },
                   { href: '/metas',     icon: '🎯', label: 'Nova meta' },
                   { href: '/reservas',  icon: '🛡️', label: 'Atualizar reservas' },
                 ].map(item => (
@@ -215,7 +234,7 @@ export default function DashboardClient() {
               <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(79,70,229,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#818CF8', flexShrink: 0 }}>{p.num}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>{p.nome}</div>
-                <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.desc}</div>
+                <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.desc}</div>
                 <BarraProgresso pct={p.pct} cor={p.cor} />
               </div>
               <span style={{ fontSize: 13, fontWeight: 600, color: p.cor, flexShrink: 0 }}>{p.pct}%</span>
@@ -244,7 +263,7 @@ export default function DashboardClient() {
                   <div style={{ color: '#E5E7EB', fontWeight: 500 }}>{f.descricao}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right' as const }}>
                   <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(f.valor_mensal)}</div>
                   <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: corPill.bg, color: corPill.txt }}>{status}</span>
                 </div>
@@ -272,7 +291,7 @@ export default function DashboardClient() {
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: cores[i], display: 'inline-block' }} />
                   <span style={{ color: '#E5E7EB' }}>{cat}</span>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right' as const }}>
                   <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(val)}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{pct}%</div>
                 </div>

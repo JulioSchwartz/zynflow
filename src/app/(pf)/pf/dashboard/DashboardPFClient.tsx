@@ -128,11 +128,29 @@ export default function DashboardPFClient() {
         .db-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
         .db-grid-main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
         .db-grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .db-lancar-menu {
+          position: absolute;
+          right: 0;
+          top: 110%;
+          background: #0D0F1A;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          padding: 8px;
+          z-index: 100;
+          min-width: 210px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
         @media (max-width: 768px) {
           .db-header { flex-direction: column; gap: 12px; }
           .db-kpis { grid-template-columns: repeat(2, 1fr); }
           .db-grid-main { grid-template-columns: 1fr; }
           .db-grid-bottom { grid-template-columns: 1fr; }
+          .db-lancar-menu {
+            right: auto;
+            left: 0;
+            min-width: 200px;
+            max-width: calc(100vw - 48px);
+          }
         }
       `}</style>
 
@@ -148,20 +166,21 @@ export default function DashboardPFClient() {
         </div>
 
         {/* Botão + Lançar com dropdown */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' as const }}>
           <button onClick={() => setMenuLancar(v => !v)}
             style={{ background: INDIGO, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             + Lançar ▾
           </button>
           {menuLancar && (
             <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
-              <div style={{ position: 'absolute', right: 0, top: '110%', background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 8, zIndex: 100, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+              <div style={{ position: 'fixed' as const, inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
+              <div className="db-lancar-menu">
                 {[
                   { href: '/pf/receitas',      icon: '💰', label: 'Nova receita' },
                   { href: '/pf/despesas',      icon: '💸', label: 'Nova despesa fixa' },
                   { href: '/pf/despesas',      icon: '🛒', label: 'Lançar gasto diário' },
                   { href: '/pf/contas',        icon: '🏦', label: 'Nova conta' },
+                  { href: '/pf/contas',        icon: '⇄',  label: 'Transferir entre contas' },
                   { href: '/pf/metas',         icon: '🎯', label: 'Nova meta' },
                   { href: '/pf/reservas',      icon: '🛡️', label: 'Atualizar reservas' },
                   { href: '/pf/investimentos', icon: '📈', label: 'Nova operação' },
@@ -206,7 +225,7 @@ export default function DashboardPFClient() {
             <div key={item.label} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                 <span style={{ fontSize: 13, color: '#E5E7EB' }}>{item.label}</span>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right' as const }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{fmt(item.valor)}</span>
                   <span style={{ fontSize: 11, color: item.cor, marginLeft: 8 }}>{item.pct}%</span>
                 </div>
@@ -239,7 +258,7 @@ export default function DashboardPFClient() {
                   <div style={{ color: '#E5E7EB', fontWeight: 500 }}>{f.descricao}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right' as const }}>
                   <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(f.valor_mensal)}</div>
                   <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: corPill.bg, color: corPill.txt }}>{status}</span>
                 </div>
@@ -267,7 +286,7 @@ export default function DashboardPFClient() {
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: cores[i], display: 'inline-block' }} />
                   <span style={{ color: '#E5E7EB' }}>{cat}</span>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right' as const }}>
                   <div style={{ color: '#fff', fontWeight: 500 }}>{fmt(val)}</div>
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{pct}%</div>
                 </div>
