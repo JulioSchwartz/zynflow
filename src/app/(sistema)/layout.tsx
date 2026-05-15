@@ -17,6 +17,7 @@ const MENU = [
     { href: '/metas',      icon: '🎯', nome: 'Metas' },
     { href: '/checklist',  icon: '✅', nome: 'Checklist' },
     { href: '/historico',  icon: '📂', nome: 'Histórico' },
+    { href: '/investimentos', icon: '📊', nome: 'Investimentos' },
   ]},
 ]
 
