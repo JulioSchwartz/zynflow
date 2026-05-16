@@ -34,7 +34,7 @@ function OlhoIcon({ aberto }: { aberto: boolean }) {
   )
 }
 
-type Etapa = 'perfil' | 'formulario'
+type Etapa = 'perfil' | 'formulario' | 'sucesso'
 type Perfil = 'autonomo' | 'pf' | null
 
 export default function CadastroClient() {
@@ -77,10 +77,17 @@ export default function CadastroClient() {
     }
 
     const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: senha })
-    if (loginError) { router.push('/auth/login'); return }
 
-    if (data.jaExistia) router.push('/dashboard')
-    else router.push(perfil === 'pf' ? '/pf/setup' : '/setup')
+    if (loginError) {
+      setErro('Conta criada com sucesso! Houve um erro ao entrar automaticamente. Clique em "Já tem conta? Entrar" e faça login com o e-mail e senha que você acabou de cadastrar.')
+      setLoading(false)
+      return
+    }
+
+    // Mostra tela de sucesso e redireciona após 2.5s
+    setEtapa('sucesso')
+    const url = data.jaExistia ? '/dashboard' : (perfil === 'pf' ? '/pf/setup' : '/setup')
+    setTimeout(() => router.push(url), 2500)
   }
 
   const inp: React.CSSProperties = {
@@ -155,7 +162,6 @@ export default function CadastroClient() {
         {/* ETAPA 2 — Formulário */}
         {etapa === 'formulario' && (
           <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '32px 28px' }}>
-
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', margin: 0 }}>Criar sua conta</h2>
               <button onClick={() => setEtapa('perfil')}
@@ -164,7 +170,6 @@ export default function CadastroClient() {
               </button>
             </div>
 
-            {/* Nome */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Seu nome</label>
               <input type="text" value={nome} onChange={e => setNome(e.target.value)}
@@ -172,7 +177,6 @@ export default function CadastroClient() {
                 placeholder="João Silva" style={inp} />
             </div>
 
-            {/* Email */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>E-mail</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -180,7 +184,6 @@ export default function CadastroClient() {
                 placeholder="seu@email.com" style={inp} />
             </div>
 
-            {/* Senha */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Senha</label>
               <div style={{ position: 'relative' }}>
@@ -195,7 +198,6 @@ export default function CadastroClient() {
               </div>
             </div>
 
-            {/* Confirmar Senha */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Confirmar senha</label>
               <div style={{ position: 'relative' }}>
@@ -211,7 +213,12 @@ export default function CadastroClient() {
             </div>
 
             {erro && (
-              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#FCA5A5', marginBottom: 16 }}>{erro}</div>
+              <div style={{
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: 8, padding: '10px 14px', fontSize: 13,
+                color: '#FCA5A5', marginBottom: 16, lineHeight: 1.6
+              }}>{erro}</div>
             )}
 
             <button onClick={handleCadastro} disabled={loading}
@@ -225,6 +232,52 @@ export default function CadastroClient() {
             </p>
           </div>
         )}
+
+        {/* ETAPA 3 — Sucesso */}
+        {etapa === 'sucesso' && (
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 16, padding: '48px 28px', textAlign: 'center' }}>
+
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%',
+              background: 'rgba(16,185,129,0.15)',
+              border: '2px solid rgba(16,185,129,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px', fontSize: 36
+            }}>✅</div>
+
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
+              Conta criada com sucesso!
+            </h2>
+
+            <p style={{ fontSize: 15, color: '#9CA3AF', margin: '0 0 6px', lineHeight: 1.6 }}>
+              Bem-vindo ao Zynflow, <strong style={{ color: '#fff' }}>{nome.split(' ')[0]}</strong>! 🎉
+            </p>
+
+            <p style={{ fontSize: 13, color: '#4B5563', margin: '0 0 36px' }}>
+              Seus <strong style={{ color: perfil === 'pf' ? '#10b981' : '#818CF8' }}>30 dias grátis</strong> começaram agora.
+            </p>
+
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 100, height: 4, overflow: 'hidden', marginBottom: 16 }}>
+              <div style={{
+                height: '100%', borderRadius: 100,
+                background: perfil === 'pf' ? '#10b981' : INDIGO,
+                animation: 'progresso 2.5s linear forwards',
+              }} />
+            </div>
+
+            <p style={{ fontSize: 12, color: '#4B5563', margin: 0 }}>
+              Preparando seu painel...
+            </p>
+
+            <style>{`
+              @keyframes progresso {
+                from { width: 0%; }
+                to   { width: 100%; }
+              }
+            `}</style>
+          </div>
+        )}
+
       </div>
     </div>
   )
