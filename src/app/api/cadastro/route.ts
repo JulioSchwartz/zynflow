@@ -42,7 +42,18 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (perfilExistente) {
-        return NextResponse.json({ ok: true, userId, jaExistia: true })
+        // Gera sessão para login automático
+        const { data: sessionData } = await sb.auth.admin.generateLink({
+          type: 'magiclink',
+          email,
+        })
+        return NextResponse.json({
+          ok: true,
+          userId,
+          jaExistia: true,
+          accessToken: sessionData?.properties?.access_token || null,
+          refreshToken: sessionData?.properties?.refresh_token || null,
+        })
       }
 
       await sb.auth.admin.updateUserById(userId, { password })
@@ -65,7 +76,18 @@ export async function POST(req: NextRequest) {
       }
       await enviarNotificacaoInterna(email, nome, trialEndsAt, perfil)
 
-      return NextResponse.json({ ok: true, userId, jaExistia: false })
+      // Gera sessão para login automático
+      const { data: sessionData } = await sb.auth.admin.generateLink({
+        type: 'magiclink',
+        email,
+      })
+      return NextResponse.json({
+        ok: true,
+        userId,
+        jaExistia: false,
+        accessToken: sessionData?.properties?.access_token || null,
+        refreshToken: sessionData?.properties?.refresh_token || null,
+      })
     }
 
     return NextResponse.json({ error: authError.message }, { status: 400 })
@@ -93,7 +115,19 @@ export async function POST(req: NextRequest) {
   }
   await enviarNotificacaoInterna(email, nome, trialEndsAt, perfil)
 
-  return NextResponse.json({ ok: true, userId: authData.user.id, jaExistia: false })
+  // Gera sessão para login automático
+  const { data: sessionData } = await sb.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+  })
+
+  return NextResponse.json({
+    ok: true,
+    userId: authData.user.id,
+    jaExistia: false,
+    accessToken: sessionData?.properties?.access_token || null,
+    refreshToken: sessionData?.properties?.refresh_token || null,
+  })
 }
 
 // ─── EMAIL AUTÔNOMO ───────────────────────────────────────────────────────────
@@ -217,53 +251,45 @@ async function enviarEmailBoasVindasPF(email: string, nome: string, trialEndsAt:
   <tr><td style="background:#FFFFFF;padding:40px;">
     <p style="margin:0 0 6px;font-size:22px;font-weight:800;color:#0F172A;">Olá, ${primeiroNome}! 👋</p>
     <p style="margin:0 0 28px;font-size:15px;color:#64748B;line-height:1.7;">Sua conta foi criada com sucesso. Você tem <strong style="color:#0F172A;">30 dias grátis</strong> para descobrir o que é ter controle total do seu dinheiro — do salário aos investimentos.</p>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
       <tr><td style="background:#064e3b;border-radius:12px;padding:24px 28px;">
         <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#6ee7b7;letter-spacing:0.1em;text-transform:uppercase;">Salário fixo não é sinônimo de dinheiro controlado</p>
         <p style="margin:0;font-size:16px;color:#FFFFFF;line-height:1.65;">Muita gente com renda estável chega no fim do mês sem saber para onde foi o dinheiro. O Zynflow PF foi feito para você saber exatamente para onde vai cada real do seu salário.</p>
       </td></tr>
     </table>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
       <tr><td style="background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:10px;padding:18px 20px;">
         <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;">⚠️ Chega de perder dinheiro</p>
-        <p style="margin:0;font-size:14px;color:#7c2d12;line-height:1.65;">Declaração de IR errada, investimentos sem acompanhamento e despesas que consomem o salário sem você perceber. Com o Zynflow PF, você tem tudo organizado em um só lugar — e declara seu IR sem precisar de contador.</p>
+        <p style="margin:0;font-size:14px;color:#7c2d12;line-height:1.65;">Declaração de IR errada, investimentos sem acompanhamento e despesas que consomem o salário sem você perceber. Com o Zynflow PF, você tem tudo organizado em um só lugar.</p>
       </td></tr>
     </table>
-
     <p style="margin:0 0 16px;font-size:16px;font-weight:700;color:#0F172A;">📋 O que fazer primeiro:</p>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;"><tr>
       <td width="46" valign="top"><div style="width:36px;height:36px;background:#10b981;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">1</div></td>
       <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;">
         <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0F172A;">Configure seu perfil financeiro</p>
-        <p style="margin:0;font-size:13px;color:#64748B;">Informe seu salário, despesas fixas e objetivo. Leva menos de 2 minutos e já mostra o % da renda comprometida.</p>
+        <p style="margin:0;font-size:13px;color:#64748B;">Informe seu salário, despesas fixas e objetivo. Leva menos de 2 minutos.</p>
       </td>
     </tr></table>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;"><tr>
       <td width="46" valign="top"><div style="width:36px;height:36px;background:#10b981;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">2</div></td>
       <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;">
         <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0F172A;">Cadastre seus investimentos</p>
-        <p style="margin:0;font-size:13px;color:#64748B;">Acesse <strong>Investimentos</strong> e registre sua carteira. O Zynflow calcula custo médio, resultado e já organiza seus proventos.</p>
+        <p style="margin:0;font-size:13px;color:#64748B;">Acesse <strong>Investimentos</strong> e registre sua carteira completa.</p>
       </td>
     </tr></table>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr>
       <td width="46" valign="top"><div style="width:36px;height:36px;background:#10b981;border-radius:9px;text-align:center;line-height:36px;font-size:15px;font-weight:800;color:#fff;">3</div></td>
       <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;">
         <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0F172A;">Acompanhe seu IRPF</p>
-        <p style="margin:0;font-size:13px;color:#64748B;">Acesse <strong>IRPF</strong> — suas vendas tributáveis, isenções e DARF já calculados automaticamente durante o ano.</p>
+        <p style="margin:0;font-size:13px;color:#64748B;">Acesse <strong>IRPF</strong> — vendas tributáveis, isenções e DARF calculados automaticamente.</p>
       </td>
     </tr></table>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
       <tr><td style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:16px 20px;text-align:center;">
         <p style="margin:0;font-size:14px;color:#166534;line-height:1.6;">⏰ Trial gratuito até <strong>${dataExpiracao}</strong>.<br/>Após, continue por apenas <strong>R$ 34,90/mês</strong>.</p>
       </td></tr>
     </table>
-
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="text-align:center;">
         <a href="${siteUrl}/pf/dashboard" style="display:inline-block;background:#10b981;color:#FFFFFF;text-decoration:none;font-size:16px;font-weight:700;padding:16px 44px;border-radius:12px;">Acessar meu Zynflow PF →</a>

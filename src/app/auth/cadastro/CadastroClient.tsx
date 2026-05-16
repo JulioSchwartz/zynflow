@@ -39,16 +39,16 @@ type Perfil = 'autonomo' | 'pf' | null
 
 export default function CadastroClient() {
   const router = useRouter()
-  const [etapa, setEtapa]         = useState<Etapa>('perfil')
-  const [perfil, setPerfil]       = useState<Perfil>(null)
-  const [nome, setNome]           = useState('')
-  const [email, setEmail]         = useState('')
-  const [senha, setSenha]         = useState('')
-  const [confirmar, setConfirmar] = useState('')
-  const [verSenha, setVerSenha]   = useState(false)
+  const [etapa, setEtapa]               = useState<Etapa>('perfil')
+  const [perfil, setPerfil]             = useState<Perfil>(null)
+  const [nome, setNome]                 = useState('')
+  const [email, setEmail]               = useState('')
+  const [senha, setSenha]               = useState('')
+  const [confirmar, setConfirmar]       = useState('')
+  const [verSenha, setVerSenha]         = useState(false)
   const [verConfirmar, setVerConfirmar] = useState(false)
-  const [erro, setErro]           = useState('')
-  const [loading, setLoading]     = useState(false)
+  const [erro, setErro]                 = useState('')
+  const [loading, setLoading]           = useState(false)
 
   function selecionarPerfil(p: Perfil) {
     setPerfil(p)
@@ -76,16 +76,27 @@ export default function CadastroClient() {
       return
     }
 
-    // Aguarda 800ms para garantir que o usuário está disponível no Auth
-    await new Promise(resolve => setTimeout(resolve, 800))
-
-    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: senha })
-
-    if (loginError) {
-      // Tenta uma segunda vez após mais 1 segundo
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      const { error: loginError2 } = await supabase.auth.signInWithPassword({ email, password: senha })
-      if (loginError2) {
+    // Login automático via tokens retornados pelo backend
+    if (data.accessToken && data.refreshToken) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken,
+      })
+      if (sessionError) {
+        // Fallback: tenta signInWithPassword
+        await new Promise(resolve => setTimeout(resolve, 800))
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: senha })
+        if (loginError) {
+          setErro('Conta criada com sucesso! Houve um erro ao entrar automaticamente. Clique em "Já tem conta? Entrar" e faça login com o e-mail e senha que você acabou de cadastrar.')
+          setLoading(false)
+          return
+        }
+      }
+    } else {
+      // Fallback: tenta signInWithPassword
+      await new Promise(resolve => setTimeout(resolve, 800))
+      const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: senha })
+      if (loginError) {
         setErro('Conta criada com sucesso! Houve um erro ao entrar automaticamente. Clique em "Já tem conta? Entrar" e faça login com o e-mail e senha que você acabou de cadastrar.')
         setLoading(false)
         return
@@ -222,8 +233,7 @@ export default function CadastroClient() {
 
             {erro && (
               <div style={{
-                background: 'rgba(239,68,68,0.1)',
-                border: '1px solid rgba(239,68,68,0.3)',
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: 8, padding: '10px 14px', fontSize: 13,
                 color: '#FCA5A5', marginBottom: 16, lineHeight: 1.6
               }}>{erro}</div>
@@ -244,11 +254,9 @@ export default function CadastroClient() {
         {/* ETAPA 3 — Sucesso */}
         {etapa === 'sucesso' && (
           <div style={{ background: '#0D0F1A', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 16, padding: '48px 28px', textAlign: 'center' }}>
-
             <div style={{
               width: 72, height: 72, borderRadius: '50%',
-              background: 'rgba(16,185,129,0.15)',
-              border: '2px solid rgba(16,185,129,0.4)',
+              background: 'rgba(16,185,129,0.15)', border: '2px solid rgba(16,185,129,0.4)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 24px', fontSize: 36
             }}>✅</div>
@@ -256,11 +264,9 @@ export default function CadastroClient() {
             <h2 style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
               Conta criada com sucesso!
             </h2>
-
             <p style={{ fontSize: 15, color: '#9CA3AF', margin: '0 0 6px', lineHeight: 1.6 }}>
               Bem-vindo ao Zynflow, <strong style={{ color: '#fff' }}>{nome.split(' ')[0]}</strong>! 🎉
             </p>
-
             <p style={{ fontSize: 13, color: '#4B5563', margin: '0 0 36px' }}>
               Seus <strong style={{ color: perfil === 'pf' ? '#10b981' : '#818CF8' }}>30 dias grátis</strong> começaram agora.
             </p>
@@ -272,10 +278,7 @@ export default function CadastroClient() {
                 animation: 'progresso 2.5s linear forwards',
               }} />
             </div>
-
-            <p style={{ fontSize: 12, color: '#4B5563', margin: 0 }}>
-              Preparando seu painel...
-            </p>
+            <p style={{ fontSize: 12, color: '#4B5563', margin: 0 }}>Preparando seu painel...</p>
 
             <style>{`
               @keyframes progresso {
