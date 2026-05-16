@@ -76,12 +76,20 @@ export default function CadastroClient() {
       return
     }
 
+    // Aguarda 800ms para garantir que o usuário está disponível no Auth
+    await new Promise(resolve => setTimeout(resolve, 800))
+
     const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: senha })
 
     if (loginError) {
-      setErro('Conta criada com sucesso! Houve um erro ao entrar automaticamente. Clique em "Já tem conta? Entrar" e faça login com o e-mail e senha que você acabou de cadastrar.')
-      setLoading(false)
-      return
+      // Tenta uma segunda vez após mais 1 segundo
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const { error: loginError2 } = await supabase.auth.signInWithPassword({ email, password: senha })
+      if (loginError2) {
+        setErro('Conta criada com sucesso! Houve um erro ao entrar automaticamente. Clique em "Já tem conta? Entrar" e faça login com o e-mail e senha que você acabou de cadastrar.')
+        setLoading(false)
+        return
+      }
     }
 
     // Mostra tela de sucesso e redireciona após 2.5s
