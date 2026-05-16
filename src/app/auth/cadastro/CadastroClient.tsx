@@ -65,7 +65,7 @@ export default function CadastroClient() {
     const res = await fetch('/api/cadastro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, email, senha, perfil }),
+      body: JSON.stringify({ nome, email, password: senha, perfil }),
     })
 
     const data = await res.json()
