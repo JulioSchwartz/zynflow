@@ -61,11 +61,11 @@ export default function HistoricoClient() {
 
   useEffect(() => { if (userId) carregar(userId, anoSel) }, [anoSel])
 
-  const totalReceita  = dados.reduce((s, d) => s + d.receita, 0)
-  const totalFixas    = dados.reduce((s, d) => s + d.fixas, 0)
+  const totalReceita   = dados.reduce((s, d) => s + d.receita, 0)
+  const totalFixas     = dados.reduce((s, d) => s + d.fixas, 0)
   const totalVariaveis = dados.reduce((s, d) => s + d.variaveis, 0)
-  const totalDiarias  = dados.reduce((s, d) => s + d.diarias, 0)
-  const totalSaldo    = dados.reduce((s, d) => s + d.saldo, 0)
+  const totalDiarias   = dados.reduce((s, d) => s + d.diarias, 0)
+  const totalSaldo     = dados.reduce((s, d) => s + d.saldo, 0)
 
   const mesAtual = dados.find(d => d.mes === mesSelecionado)
 
@@ -92,14 +92,14 @@ export default function HistoricoClient() {
         </select>
       </div>
 
-      {/* KPIs anuais — 5 colunas */}
+      {/* KPIs anuais */}
       <div className="hist-kpis">
         {[
-          { label: 'Receita total',    val: totalReceita,   cor: VERDE },
-          { label: 'Fixas total',      val: totalFixas,     cor: '#fff' },
-          { label: 'Variáveis total',  val: totalVariaveis, cor: '#f59e0b' },
-          { label: 'Diárias total',    val: totalDiarias,   cor: VERM },
-          { label: 'Saldo acumulado',  val: totalSaldo,     cor: totalSaldo >= 0 ? VERDE : VERM },
+          { label: 'Receita total',   val: totalReceita,   cor: VERDE },
+          { label: 'Fixas total',     val: totalFixas,     cor: '#E5E7EB' },
+          { label: 'Variáveis total', val: totalVariaveis, cor: '#E5E7EB' },
+          { label: 'Diárias total',   val: totalDiarias,   cor: '#E5E7EB' },
+          { label: 'Saldo acumulado', val: totalSaldo,     cor: totalSaldo >= 0 ? VERDE : VERM },
         ].map(k => (
           <div key={k.label} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 18px' }}>
             <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{k.label}</div>
@@ -149,11 +149,11 @@ export default function HistoricoClient() {
               </div>
               <div className="hist-mes-detalhe">
                 {[
-                  { label: 'Receita',    val: mesAtual.receita,    cor: VERDE },
-                  { label: 'Fixas',      val: mesAtual.fixas,      cor: '#fff' },
-                  { label: 'Variáveis',  val: mesAtual.variaveis,  cor: '#f59e0b' },
-                  { label: 'Diárias',    val: mesAtual.diarias,    cor: VERM },
-                  { label: 'Saldo',      val: mesAtual.saldo,      cor: mesAtual.saldo >= 0 ? VERDE : VERM },
+                  { label: 'Receita',   val: mesAtual.receita,   cor: VERDE },
+                  { label: 'Fixas',     val: mesAtual.fixas,     cor: '#E5E7EB' },
+                  { label: 'Variáveis', val: mesAtual.variaveis, cor: '#E5E7EB' },
+                  { label: 'Diárias',   val: mesAtual.diarias,   cor: '#E5E7EB' },
+                  { label: 'Saldo',     val: mesAtual.saldo,     cor: mesAtual.saldo >= 0 ? VERDE : VERM },
                 ].map(k => (
                   <div key={k.label}>
                     <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{k.label}</div>
@@ -169,8 +169,18 @@ export default function HistoricoClient() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  {['Mês','Receita','Fixas','Variáveis','Diárias','Saldo'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left' as const, fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase' as const, whiteSpace: 'nowrap' }}>{h}</th>
+                  {[
+                    { h: 'Mês', sub: null },
+                    { h: 'Receita', sub: null },
+                    { h: 'Fixas', sub: 'despesa' },
+                    { h: 'Variáveis', sub: 'despesa' },
+                    { h: 'Diárias', sub: 'despesa' },
+                    { h: 'Saldo', sub: null },
+                  ].map(col => (
+                    <th key={col.h} style={{ padding: '12px 16px', textAlign: 'left' as const, fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase' as const, whiteSpace: 'nowrap' }}>
+                      {col.h}
+                      {col.sub && <span style={{ display: 'block', fontSize: 10, color: '#4B5563', fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }}>{col.sub}</span>}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -189,8 +199,8 @@ export default function HistoricoClient() {
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 14, color: d.receita > 0 ? VERDE : '#4B5563', fontWeight: 500, whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.receita) : '—'}</td>
                       <td style={{ padding: '12px 16px', fontSize: 14, color: d.fixas > 0 ? '#E5E7EB' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.fixas) : '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.variaveis > 0 ? '#f59e0b' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.variaveis) : '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.diarias > 0 ? VERM : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.diarias) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.variaveis > 0 ? '#E5E7EB' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.variaveis) : '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 14, color: d.diarias > 0 ? '#E5E7EB' : '#4B5563', whiteSpace: 'nowrap' }}>{temDados || isAtual ? fmt(d.diarias) : '—'}</td>
                       <td style={{ padding: '12px 16px', fontSize: 14, color: d.saldo > 0 ? VERDE : d.saldo < 0 ? VERM : '#4B5563', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {temDados || isAtual ? fmt(d.saldo) : '—'}
                       </td>

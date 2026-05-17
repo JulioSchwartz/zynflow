@@ -253,6 +253,15 @@ export default function IRPFPFClient() {
         </div>
       </div>
 
+
+      {/* Aviso base de cálculo */}
+      <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+        <p style={{ margin: 0, fontSize: 13, color: '#fcd34d', lineHeight: 1.6 }}>
+          <strong>Este módulo é uma base estimada para o seu Imposto de Renda — não substitui a declaração oficial.</strong> Os valores calculados aqui servem para planejamento e acompanhamento ao longo do ano. Para enviar sua declaração à Receita Federal, utilize o programa oficial IRPF disponível no site da Receita Federal do Brasil.
+        </p>
+      </div>
+
       {/* KPIs */}
       <div className="irpf-kpis">
         {[
