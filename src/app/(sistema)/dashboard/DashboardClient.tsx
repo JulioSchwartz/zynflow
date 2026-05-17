@@ -262,7 +262,7 @@ export default function DashboardClient() {
           </div>
         </Card>
 
-        <Card title="Despesas fixas — status">
+        <Card title="Despesas — status">
           {/* Filtro de status */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' as const }}>
             {(['todos', 'pago', 'pendente', 'vencida'] as FiltroStatus[]).map(f => (
