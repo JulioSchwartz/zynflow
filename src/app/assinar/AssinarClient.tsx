@@ -4,13 +4,48 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const INDIGO = '#4F46E5'
+const VERDE  = '#10b981'
+
+const PLANOS = {
+  autonomo: {
+    preco:    'R$ 19,90/mês',
+    precoNum: 'R$ 19,90',
+    cor:      INDIGO,
+    titulo:   'Zynflow Pro — Autônomo',
+    trial:    '30 dias',
+    itens: [
+      'Dashboard com Método 3 Passos completo',
+      'Teto semanal calculado automaticamente',
+      'Fundo de Meses Fracos — exclusivo autônomo',
+      'Receitas, despesas e contas ilimitadas',
+      'Metas com aportes e histórico anual',
+      'Checklist semanal interativo',
+    ],
+  },
+  pf: {
+    preco:    'R$ 34,90/mês',
+    precoNum: 'R$ 34,90',
+    cor:      VERDE,
+    titulo:   'Zynflow Pro — CLT/Assalariado',
+    trial:    '30 dias',
+    itens: [
+      'Dashboard financeiro completo para CLT',
+      'Controle de salário e despesas mensais',
+      'Módulo de investimentos com carteira completa',
+      'IRPF — base para declaração do imposto de renda',
+      'Receitas, despesas e contas ilimitadas',
+      'Histórico anual detalhado',
+    ],
+  },
+}
 
 export default function AssinarClient() {
-  const router = useRouter()
-  const params = useSearchParams()
+  const router   = useRouter()
+  const params   = useSearchParams()
   const [nome, setNome]           = useState('')
   const [email, setEmail]         = useState('')
   const [userId, setUserId]       = useState('')
+  const [perfil, setPerfil]       = useState<'autonomo' | 'pf'>('autonomo')
   const [loading, setLoading]     = useState(true)
   const [iniciando, setIniciando] = useState(false)
   const sucesso = params.get('assinatura') === 'sucesso'
@@ -22,15 +57,19 @@ export default function AssinarClient() {
 
       const { data } = await supabase
         .from('usuarios_flow')
-        .select('nome, status, plano')
+        .select('nome, status, plano, perfil')
         .eq('user_id', user.id)
         .single()
 
-      if (data?.status === 'ativo') { router.push('/dashboard'); return }
+      if (data?.status === 'ativo') {
+        router.push(data?.perfil === 'pf' ? '/pf/dashboard' : '/dashboard')
+        return
+      }
 
       setNome(data?.nome || '')
       setEmail(user.email || '')
       setUserId(user.id)
+      setPerfil(data?.perfil === 'pf' ? 'pf' : 'autonomo')
       setLoading(false)
     }
     carregar()
@@ -48,6 +87,8 @@ export default function AssinarClient() {
     else setIniciando(false)
   }
 
+  const plano = PLANOS[perfil]
+
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#07080F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ color: '#6B7280', fontFamily: 'system-ui, sans-serif' }}>Carregando...</span>
@@ -64,7 +105,7 @@ export default function AssinarClient() {
 
       {/* BOTÃO VOLTAR */}
       {!sucesso && (
-        <button onClick={() => router.push('/dashboard')}
+        <button onClick={() => router.push(perfil === 'pf' ? '/pf/dashboard' : '/dashboard')}
           style={{
             position: 'absolute', top: 20, left: 20,
             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
@@ -78,14 +119,17 @@ export default function AssinarClient() {
       <div style={{ width: '100%', maxWidth: 500, textAlign: 'center' }}>
 
         {/* Logo */}
-        <div style={{ width: 56, height: 56, borderRadius: 14, background: INDIGO, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 24, fontWeight: 800, color: '#fff' }}>Z</div>
+        <div style={{ width: 56, height: 56, borderRadius: 14, background: plano.cor, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 24, fontWeight: 800, color: '#fff' }}>Z</div>
 
         {sucesso ? (
           <>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
             <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Assinatura ativada!</h1>
-            <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 32 }}>Bem-vindo ao Zynflow Pro, {nome}! Seu controle financeiro começa agora.</p>
-            <button onClick={() => router.push('/dashboard')} style={{ background: INDIGO, color: '#fff', border: 'none', borderRadius: 10, padding: '14px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+            <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 32 }}>
+              Bem-vindo ao Zynflow Pro, {nome}! Seu controle financeiro começa agora.
+            </p>
+            <button onClick={() => router.push(perfil === 'pf' ? '/pf/dashboard' : '/dashboard')}
+              style={{ background: plano.cor, color: '#fff', border: 'none', borderRadius: 10, padding: '14px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
               Ir para o dashboard →
             </button>
           </>
@@ -95,28 +139,28 @@ export default function AssinarClient() {
               Seu trial encerrou
             </h1>
             <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 36, lineHeight: 1.65 }}>
-              {nome ? `${nome}, o` : 'O'} seu período gratuito de 30 dias chegou ao fim. Para continuar usando o Zynflow, ative sua assinatura por apenas <strong style={{ color: '#fff' }}>R$ 19,90/mês</strong>.
+              {nome ? `${nome}, o` : 'O'} seu período gratuito de {plano.trial} chegou ao fim. Para continuar usando o Zynflow, ative sua assinatura por apenas <strong style={{ color: '#fff' }}>{plano.precoNum}</strong>.
             </p>
 
             {/* Card do plano */}
-            <div style={{ background: '#0D0F1A', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 16, padding: '32px 28px', marginBottom: 24, textAlign: 'left' }}>
+            <div style={{ background: '#0D0F1A', border: `1px solid ${plano.cor}4D`, borderRadius: 16, padding: '32px 28px', marginBottom: 24, textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#818CF8', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Zynflow Pro</div>
-                  <div style={{ fontSize: 36, fontWeight: 800, color: '#fff', lineHeight: 1 }}>R$ 19<span style={{ fontSize: 18, fontWeight: 400, color: '#6B7280' }}>,90/mês</span></div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: plano.cor, marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
+                    {plano.titulo}
+                  </div>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                    {plano.preco.split('/')[0]}
+                    <span style={{ fontSize: 18, fontWeight: 400, color: '#6B7280' }}>/mês</span>
+                  </div>
                 </div>
-                <span style={{ fontSize: 12, color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 12px', borderRadius: 100, fontWeight: 600 }}>Cancele quando quiser</span>
+                <span style={{ fontSize: 12, color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 12px', borderRadius: 100, fontWeight: 600 }}>
+                  Cancele quando quiser
+                </span>
               </div>
 
               <ul style={{ listStyle: 'none', margin: '0 0 24px', padding: 0 }}>
-                {[
-                  'Dashboard com Método 3 Passos completo',
-                  'Teto semanal calculado automaticamente',
-                  'Fundo de Meses Fracos — exclusivo autônomo',
-                  'Receitas, despesas e contas ilimitadas',
-                  'Metas com aportes e histórico anual',
-                  'Checklist semanal interativo',
-                ].map(item => (
+                {plano.itens.map(item => (
                   <li key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', fontSize: 14, color: '#E5E7EB', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ color: '#22c55e', fontWeight: 700, flexShrink: 0 }}>✓</span>
                     {item}
@@ -125,11 +169,11 @@ export default function AssinarClient() {
               </ul>
 
               <button onClick={assinar} disabled={iniciando} style={{
-                width: '100%', background: INDIGO, color: '#fff', border: 'none',
+                width: '100%', background: plano.cor, color: '#fff', border: 'none',
                 borderRadius: 10, padding: '14px', fontSize: 15, fontWeight: 700,
                 cursor: iniciando ? 'not-allowed' : 'pointer', opacity: iniciando ? 0.7 : 1,
               }}>
-                {iniciando ? 'Redirecionando...' : 'Assinar agora por R$ 19,90/mês →'}
+                {iniciando ? 'Redirecionando...' : `Assinar agora por ${plano.precoNum} →`}
               </button>
             </div>
 
