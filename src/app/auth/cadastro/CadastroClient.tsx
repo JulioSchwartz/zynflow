@@ -7,7 +7,7 @@ const INDIGO = '#4F46E5'
 
 function traduzirErro(erro: string): string {
   if (erro.includes('already been registered') || erro.includes('already registered'))
-    return 'Este e-mail já está cadastrado. Tente fazer login.'
+  return 'Este e-mail já está cadastrado em um produto Zyncompany. Use outro e-mail para realizar o cadastro.'
   if (erro.includes('invalid email') || erro.includes('Invalid email'))
     return 'E-mail inválido. Verifique e tente novamente.'
   if (erro.includes('Password should be at least'))
