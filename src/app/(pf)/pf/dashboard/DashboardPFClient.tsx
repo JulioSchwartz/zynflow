@@ -38,6 +38,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+type FiltroStatus = 'todos' | 'pago' | 'pendente' | 'vencida'
+
 export default function DashboardPFClient() {
   const mes = new Date().getMonth() + 1
   const ano = new Date().getFullYear()
@@ -52,6 +54,7 @@ export default function DashboardPFClient() {
   const [contas,      setContas]      = useState<any[]>([])
   const [loading,     setLoading]     = useState(true)
   const [menuLancar,  setMenuLancar]  = useState(false)
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
 
   const hoje      = new Date()
   const diaSemana = hoje.toLocaleDateString('pt-BR', { weekday: 'long' })
@@ -95,6 +98,16 @@ export default function DashboardPFClient() {
   const totalReservado = reservas.reduce((s, r) => s + (r.valor_acumulado || 0), 0)
   const saldoDisp      = totalRecebido - totalSaidas
 
+  // Cards Total Pago / Pendente / Vencido
+  const todasDespesas = [
+    ...fixas.map(f => ({ ...f, valor: f.valor_mensal, origem: 'fixa' })),
+    ...variaveis.map(v => ({ ...v, valor: v.valor_mensal, origem: 'variavel' })),
+    ...diarias.map(d => ({ ...d, pago: true, dia_vencimento: null, origem: 'diaria' })),
+  ]
+  const totalPago     = todasDespesas.filter(d => d.pago).reduce((s, d) => s + (d.valor || 0), 0)
+  const totalPendente = todasDespesas.filter(d => !d.pago && !(d.dia_vencimento && d.dia_vencimento <= new Date().getDate())).reduce((s, d) => s + (d.valor || 0), 0)
+  const totalVencido  = todasDespesas.filter(d => !d.pago && d.dia_vencimento && d.dia_vencimento <= new Date().getDate()).reduce((s, d) => s + (d.valor || 0), 0)
+
   const contasComSaldo = contas.map(c => {
     const entradasConta   = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
     const saidasDiarias   = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
@@ -109,9 +122,20 @@ export default function DashboardPFClient() {
   const pctDiarias   = totalRecebido > 0 ? Math.round((totalDiarias / totalRecebido) * 100) : 0
   const pctTotal     = pctFixas + pctVariaveis + pctDiarias
 
+  // Gastos por categoria — fixas + variáveis + diárias
   const catMap: Record<string, number> = {}
-  diarias.forEach(d => { catMap[d.categoria] = (catMap[d.categoria] || 0) + d.valor })
+  fixas.forEach(f => { if (f.categoria) catMap[f.categoria] = (catMap[f.categoria] || 0) + (f.valor_mensal || 0) })
+  variaveis.forEach(v => { if (v.categoria) catMap[v.categoria] = (catMap[v.categoria] || 0) + (v.valor_mensal || 0) })
+  diarias.forEach(d => { if (d.categoria) catMap[d.categoria] = (catMap[d.categoria] || 0) + (d.valor || 0) })
   const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const totalCats = Object.values(catMap).reduce((s, v) => s + v, 0)
+
+  // Filtro despesas fixas por status
+  const fixasFiltradas = [...fixas].sort((a, b) => (a.dia_vencimento || 99) - (b.dia_vencimento || 99)).filter(f => {
+    const status = f.pago ? 'pago' : f.dia_vencimento && f.dia_vencimento <= new Date().getDate() ? 'vencida' : 'pendente'
+    if (filtroStatus === 'todos') return true
+    return status === filtroStatus
+  })
 
   if (loading) {
     return (
@@ -126,92 +150,81 @@ export default function DashboardPFClient() {
       <style>{`
         .db-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
         .db-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+        .db-kpis-status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
         .db-grid-main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
         .db-grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
         .db-lancar-menu {
-          position: absolute;
-          right: 0;
-          top: 110%;
-          background: #0D0F1A;
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 12px;
-          padding: 8px;
-          z-index: 100;
-          min-width: 210px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+          position: absolute; right: 0; top: 110%;
+          background: #0D0F1A; border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px; padding: 8px; z-index: 100;
+          min-width: 210px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
         @media (max-width: 768px) {
-          .db-header { flex-direction: column; gap: 12px; }
-          .db-kpis { grid-template-columns: repeat(2, 1fr); }
-          .db-grid-main { grid-template-columns: 1fr; }
-          .db-grid-bottom { grid-template-columns: 1fr; }
-          .db-lancar-menu {
-            right: auto;
-            left: 0;
-            min-width: 200px;
-            max-width: calc(100vw - 48px);
-          }
+          .db-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+          .db-kpis-status { grid-template-columns: repeat(3, 1fr) !important; }
+          .db-grid-main { grid-template-columns: 1fr !important; }
+          .db-grid-bottom { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
       {/* Header */}
       <div className="db-header">
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>
-            Olá, {nomeUsuario || 'bem-vindo'} 👋
-          </h1>
-          <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>
-            {diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)}, {dataBR}
-          </p>
+          <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' as const }}>{diaSemana}, {dataBR}</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: '#fff' }}>
+            Olá, {nomeUsuario.split(' ')[0]} 👋
+          </div>
         </div>
-
-        {/* Botão + Lançar com dropdown */}
         <div style={{ position: 'relative' as const }}>
-          <button onClick={() => setMenuLancar(v => !v)}
-            style={{ background: INDIGO, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            + Lançar ▾
+          <button onClick={() => setMenuLancar(v => !v)} style={{ background: INDIGO, border: 'none', color: '#fff', padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            + Lançar
           </button>
           {menuLancar && (
-            <>
-              <div style={{ position: 'fixed' as const, inset: 0, zIndex: 99 }} onClick={() => setMenuLancar(false)} />
-              <div className="db-lancar-menu">
-                {[
-                  { href: '/pf/receitas',      icon: '💰', label: 'Nova receita' },
-                  { href: '/pf/despesas',      icon: '💸', label: 'Nova despesa fixa' },
-                  { href: '/pf/despesas',      icon: '🛒', label: 'Lançar gasto diário' },
-                  { href: '/pf/contas',        icon: '🏦', label: 'Nova conta' },
-                  { href: '/pf/contas',        icon: '⇄',  label: 'Transferir entre contas' },
-                  { href: '/pf/metas',         icon: '🎯', label: 'Nova meta' },
-                  { href: '/pf/reservas',      icon: '🛡️', label: 'Atualizar reservas' },
-                  { href: '/pf/investimentos', icon: '📈', label: 'Nova operação' },
-                ].map(item => (
-                  <a key={item.label} href={item.href}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, color: '#E5E7EB', textDecoration: 'none', fontSize: 13 }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <span>{item.icon}</span>{item.label}
-                  </a>
-                ))}
-              </div>
-            </>
+            <div className="db-lancar-menu">
+              {[
+                { href: '/pf/receitas', label: '💰 Nova receita' },
+                { href: '/pf/despesas?tab=fixas', label: '📋 Despesa fixa' },
+                { href: '/pf/despesas?tab=variaveis', label: '📊 Despesa variável' },
+                { href: '/pf/despesas?tab=diarias', label: '🛒 Gasto diário' },
+                { href: '/pf/reservas', label: '🏦 Aporte em reserva' },
+              ].map(item => (
+                <a key={item.href} href={item.href} onClick={() => setMenuLancar(false)}
+                  style={{ display: 'block', padding: '9px 12px', borderRadius: 8, fontSize: 13, color: '#E5E7EB', textDecoration: 'none' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  {item.label}
+                </a>
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Alerta gastos > 90% */}
-      {pctTotal >= 90 && totalRecebido > 0 && (
-        <div style={{ background: pctTotal >= 100 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', border: `1px solid ${pctTotal >= 100 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontSize: 13, color: pctTotal >= 100 ? '#FCA5A5' : '#FCD34D' }}>
-          <span>{pctTotal >= 100 ? '🚨' : '⚠️'}</span>
-          <span>{pctTotal >= 100 ? `Seus gastos ultrapassaram sua renda este mês! (${pctTotal}%)` : `Seus gastos estão em ${pctTotal}% da sua renda. Atenção!`}</span>
-        </div>
-      )}
-
-      {/* KPIs */}
+      {/* KPIs principais */}
       <div className="db-kpis">
-        <KPI label="Salário / Receita"   valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
-        <KPI label="Total de gastos"     valor={fmt(totalSaidas)}    sub={`${pctTotal}% da renda`}            cor={pctTotal > 80 ? VERM : AMBER} />
-        <KPI label="Total em reservas"   valor={fmt(totalReservado)} sub="Acumulado em todas as reservas"     cor={INDIGO} />
-        <KPI label="Saldo disponível"    valor={fmt(saldoDisp)}      sub="Receita menos gastos"               cor={saldoDisp >= 0 ? '#fff' : VERM} />
+        <KPI label="Salário"           valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
+        <KPI label="Total de gastos"   valor={fmt(totalSaidas)}    sub={`${pctTotal}% da renda`}            cor={pctTotal > 80 ? VERM : AMBER} />
+        <KPI label="Total em reservas" valor={fmt(totalReservado)} sub="Acumulado em todas as reservas"     cor={INDIGO} />
+        <KPI label="Saldo disponível"  valor={fmt(saldoDisp)}      sub="Receita menos gastos"               cor={saldoDisp >= 0 ? '#fff' : VERM} />
+      </div>
+
+      {/* Cards Total Pago / Pendente / Vencido */}
+      <div className="db-kpis-status">
+        <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 6 }}>✅ Total pago</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: VERDE }}>{fmt(totalPago)}</div>
+          <div style={{ fontSize: 11, color: '#4B5563', marginTop: 4 }}>Fixas + variáveis + diárias</div>
+        </div>
+        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 6 }}>⏳ Total pendente</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: AMBER }}>{fmt(totalPendente)}</div>
+          <div style={{ fontSize: 11, color: '#4B5563', marginTop: 4 }}>A vencer este mês</div>
+        </div>
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 6 }}>🔴 Total vencido</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: VERM }}>{fmt(totalVencido)}</div>
+          <div style={{ fontSize: 11, color: '#4B5563', marginTop: 4 }}>Prazo já passou</div>
+        </div>
       </div>
 
       {/* Grid principal */}
@@ -244,12 +257,26 @@ export default function DashboardPFClient() {
         </Card>
 
         <Card title="Despesas fixas — status">
-          {fixas.length === 0 ? (
+          {/* Filtro de status */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' as const }}>
+            {(['todos', 'pago', 'pendente', 'vencida'] as FiltroStatus[]).map(f => (
+              <button key={f} onClick={() => setFiltroStatus(f)} style={{
+                padding: '3px 10px', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                background: filtroStatus === f ? INDIGO : 'rgba(255,255,255,0.06)',
+                color: filtroStatus === f ? '#fff' : '#6B7280',
+              }}>
+                {f === 'todos' ? 'Todos' : f === 'pago' ? '✅ Pago' : f === 'pendente' ? '⏳ Pendente' : '🔴 Vencido'}
+              </button>
+            ))}
+          </div>
+          {fixasFiltradas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhuma despesa fixa lançada</p>
-              <a href="/pf/despesas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar despesas fixas</a>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
+                {filtroStatus === 'todos' ? 'Nenhuma despesa fixa lançada' : `Nenhuma despesa ${filtroStatus}`}
+              </p>
+              {filtroStatus === 'todos' && <a href="/pf/despesas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar despesas fixas</a>}
             </div>
-          ) : [...fixas].sort((a, b) => (a.dia_vencimento || 99) - (b.dia_vencimento || 99)).slice(0, 5).map(f => {
+          ) : fixasFiltradas.slice(0, 6).map(f => {
             const status = f.pago ? 'pago' : f.dia_vencimento && f.dia_vencimento <= new Date().getDate() ? 'vencida' : 'pendente'
             const corPill = status === 'pago' ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80' } : status === 'vencida' ? { bg: 'rgba(239,68,68,0.1)', txt: '#FCA5A5' } : { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF' }
             return (
@@ -265,7 +292,7 @@ export default function DashboardPFClient() {
               </div>
             )
           })}
-          {fixas.length > 5 && <div style={{ textAlign: 'center', marginTop: 8 }}><a href="/pf/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixas.length})</a></div>}
+          {fixasFiltradas.length > 6 && <div style={{ textAlign: 'center', marginTop: 8 }}><a href="/pf/despesas" style={{ fontSize: 12, color: '#818CF8' }}>Ver todas ({fixasFiltradas.length})</a></div>}
         </Card>
       </div>
 
@@ -274,12 +301,12 @@ export default function DashboardPFClient() {
         <Card title="Gastos por categoria">
           {cats.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhum gasto diário</p>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhum gasto lançado</p>
               <a href="/pf/despesas" style={{ fontSize: 13, color: '#818CF8' }}>+ Lançar gasto</a>
             </div>
           ) : cats.map(([cat, val], i) => {
             const cores = [AMBER, '#8b5cf6', '#06b6d4', '#64748b', '#ec4899']
-            const pct = totalDiarias > 0 ? Math.round((val / totalDiarias) * 100) : 0
+            const pct = totalCats > 0 ? Math.round((val / totalCats) * 100) : 0
             return (
               <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -293,6 +320,7 @@ export default function DashboardPFClient() {
               </div>
             )
           })}
+          <div style={{ fontSize: 11, color: '#4B5563', marginTop: 8 }}>Fixas + variáveis + diárias</div>
         </Card>
 
         <Card title="Metas financeiras">
