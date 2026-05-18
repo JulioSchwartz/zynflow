@@ -449,17 +449,102 @@ export default function DespesasPFClient() {
                 </div>
               </div>
 
-              {/* Lista consolidada */}
+              {/* 3 colunas: Fixas | Variáveis | Diárias */}
               {fixas.length === 0 && variaveis.length === 0 && diarias.length === 0 ? (
                 <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '48px 24px', textAlign: 'center' }}>
                   <p style={{ color: '#6B7280', fontSize: 14 }}>Nenhuma despesa lançada em {MESES[mesSel-1]}</p>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
-                  {fixas.map(f => renderCardFV(f))}
-                  {variaveis.map(f => renderCardFV(f))}
-                  {diarias.map(d => renderCardD(d))}
-                </div>
+                <>
+                  <style>{`.consol-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; } @media(max-width:768px){ .consol-cols { grid-template-columns: 1fr !important; } }`}</style>
+                  <div className="consol-cols">
+
+                    {/* Coluna Fixas */}
+                    <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Fixas ({fixas.length})</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: VERM }}>{fmt(totalFixas)}</span>
+                      </div>
+                      {fixas.length === 0 ? (
+                        <div style={{ padding: '24px 16px', textAlign: 'center' as const, color: '#4B5563', fontSize: 13 }}>Nenhuma</div>
+                      ) : (
+                        <div>
+                          {fixas.map(f => {
+                            const st = corStatus(f)
+                            return (
+                              <div key={f.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.descricao}</div>
+                                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</div>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Coluna Variáveis */}
+                    <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Variáveis ({variaveis.length})</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: VERM }}>{fmt(totalVariaveis)}</span>
+                      </div>
+                      {variaveis.length === 0 ? (
+                        <div style={{ padding: '24px 16px', textAlign: 'center' as const, color: '#4B5563', fontSize: 13 }}>Nenhuma</div>
+                      ) : (
+                        <div>
+                          {variaveis.map(f => {
+                            const st = corStatus(f)
+                            return (
+                              <div key={f.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.descricao}</div>
+                                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</div>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Coluna Diárias */}
+                    <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Diárias ({diarias.length})</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: VERM }}>{fmt(totalDiarias)}</span>
+                      </div>
+                      {diarias.length === 0 ? (
+                        <div style={{ padding: '24px 16px', textAlign: 'center' as const, color: '#4B5563', fontSize: 13 }}>Nenhuma</div>
+                      ) : (
+                        <div>
+                          {diarias.map(d => (
+                            <div key={d.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{d.descricao}</div>
+                                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{d.categoria} · {new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(d.valor)}</div>
+                                <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: 'rgba(34,197,94,0.1)', color: '#4ade80' }}>pago</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </>
               )}
             </div>
           )}
