@@ -212,7 +212,7 @@ export default function DespesasPFClient() {
       mes: proxMes, ano: proxAno,
     }))
     if (inserir.length > 0) {
-      await supabase.from('despesas_fixas_flow').upsert(inserir, { onConflict: 'user_id,tipo,descricao,mes,ano' })
+      await supabase.from('despesas_fixas_flow').insert(inserir)
     }
     setReplicando(false)
     setModalReplicar(false)
