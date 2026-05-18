@@ -78,6 +78,8 @@ export default function DespesasPFClient() {
   const [erro, setErro]                 = useState('')
   const [replicando, setReplicando]     = useState(false)
   const [modalConfirmPago, setModalConfirmPago] = useState<{ despesa: Fixa } | null>(null)
+  const [modalReplicar, setModalReplicar] = useState(false)
+  const [selecionadosReplicar, setSelecionadosReplicar] = useState<string[]>([])
 
   async function carregar(uid: string, mes: number, ano: number) {
     setLoading(true)
@@ -191,12 +193,18 @@ export default function DespesasPFClient() {
     setModalConfirmPago(null)
   }
 
-  async function replicarProximoMes() {
+  function abrirModalReplicar() {
+    const itens = aba === 'fixa' ? fixas : variaveis
+    setSelecionadosReplicar(itens.map(f => f.id))
+    setModalReplicar(true)
+  }
+
+  async function replicarSelecionados() {
     if (!userId) return
     setReplicando(true)
     const proxMes = mesSel === 12 ? 1 : mesSel + 1
     const proxAno = mesSel === 12 ? anoSel + 1 : anoSel
-    const itens = aba === 'fixa' ? fixas : variaveis
+    const itens = (aba === 'fixa' ? fixas : variaveis).filter(f => selecionadosReplicar.includes(f.id))
     const inserir = itens.map(f => ({
       user_id: userId, tipo: f.tipo, categoria: f.categoria, descricao: f.descricao,
       valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento,
@@ -207,6 +215,7 @@ export default function DespesasPFClient() {
       await supabase.from('despesas_fixas_flow').upsert(inserir, { onConflict: 'user_id,tipo,descricao,mes,ano' })
     }
     setReplicando(false)
+    setModalReplicar(false)
     alert(`${itens.length} despesa(s) replicada(s) para ${MESES[proxMes - 1]}/${proxAno}!`)
   }
 
@@ -322,14 +331,13 @@ export default function DespesasPFClient() {
       {/* RESUMO */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Fixas do mês',     val: totalFixas,     sub: `${fmt(totalFixasPagas)} pago`, info: INFO_FIXA },
-          { label: 'Variáveis do mês', val: totalVariaveis, sub: `${fmt(totalVariaveisPagas)} pago`, info: INFO_VARIAVEL },
-          { label: 'Diárias do mês',   val: totalDiarias,   sub: `${diarias.length} lançamento(s)`, info: INFO_DIARIA },
+          { label: 'Fixas do mês',     val: totalFixas,     sub: `${fmt(totalFixasPagas)} pago` },
+          { label: 'Variáveis do mês', val: totalVariaveis, sub: `${fmt(totalVariaveisPagas)} pago` },
+          { label: 'Diárias do mês',   val: totalDiarias,   sub: `${diarias.length} lançamento(s)` },
         ].map(k => (
           <div key={k.label} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <div style={{ marginBottom: 6 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>{k.label}</div>
-              <InfoTooltip texto={k.info} />
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: VERM }}>{fmt(k.val)}</div>
             <div style={{ fontSize: 12, color: '#4B5563', marginTop: 4 }}>{k.sub}</div>
@@ -348,7 +356,6 @@ export default function DespesasPFClient() {
           <button key={t.key} onClick={() => setAba(t.key)}
             style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: aba === t.key ? 600 : 400, background: aba === t.key ? (t.key === 'consolidado' ? '#0f766e' : INDIGO) : 'transparent', color: aba === t.key ? '#fff' : '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             {t.label}
-            {aba !== t.key && <InfoTooltip texto={t.info} />}
           </button>
         ))}
       </div>
@@ -356,11 +363,10 @@ export default function DespesasPFClient() {
       {/* Botão replicar (fixas e variáveis) */}
       {(aba === 'fixa' || aba === 'variavel') && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <button onClick={replicarProximoMes} disabled={replicando}
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 16px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', opacity: replicando ? 0.6 : 1 }}>
-            {replicando ? 'Replicando...' : `📋 Replicar para ${MESES[mesSel === 12 ? 0 : mesSel]}`}
+          <button onClick={abrirModalReplicar}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 16px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }}>
+            📋 Replicar para {MESES[mesSel === 12 ? 0 : mesSel]}
           </button>
-          <InfoTooltip texto={INFO_REPLICAR} />
         </div>
       )}
 
@@ -484,6 +490,58 @@ export default function DespesasPFClient() {
               <button onClick={() => togglePagoConfirmado(modalConfirmPago.despesa, true)}
                 style={{ flex: 1, background: VERDE, border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
                 ✓ Confirmar pagamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL REPLICAR */}
+      {modalReplicar && (
+        <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 }}>
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 480, maxHeight: '80vh', overflowY: 'auto' as const }}>
+            <h3 style={{ fontSize: 17, fontWeight: 600, color: '#fff', margin: '0 0 6px' }}>
+              Replicar para {MESES[mesSel === 12 ? 0 : mesSel]}/{mesSel === 12 ? anoSel + 1 : anoSel}
+            </h3>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>
+              Selecione quais despesas deseja replicar para o mês seguinte.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <button onClick={() => setSelecionadosReplicar((aba === 'fixa' ? fixas : variaveis).map(f => f.id))}
+                style={{ background: 'none', border: 'none', color: '#818CF8', fontSize: 13, cursor: 'pointer' }}>
+                Selecionar todas
+              </button>
+              <button onClick={() => setSelecionadosReplicar([])}
+                style={{ background: 'none', border: 'none', color: '#6B7280', fontSize: 13, cursor: 'pointer' }}>
+                Limpar seleção
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginBottom: 20 }}>
+              {(aba === 'fixa' ? fixas : variaveis).map(f => (
+                <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: selecionadosReplicar.includes(f.id) ? 'rgba(79,70,229,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${selecionadosReplicar.includes(f.id) ? 'rgba(79,70,229,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 10, cursor: 'pointer' }}>
+                  <input type="checkbox"
+                    checked={selecionadosReplicar.includes(f.id)}
+                    onChange={e => {
+                      if (e.target.checked) setSelecionadosReplicar(prev => [...prev, f.id])
+                      else setSelecionadosReplicar(prev => prev.filter(id => id !== f.id))
+                    }}
+                    style={{ width: 16, height: 16, accentColor: '#4F46E5' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>{f.descricao}</div>
+                    <div style={{ fontSize: 11, color: '#6B7280' }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>{f.valor_mensal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setModalReplicar(false)}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={replicarSelecionados} disabled={replicando || selecionadosReplicar.length === 0}
+                style={{ flex: 2, background: selecionadosReplicar.length === 0 ? 'rgba(79,70,229,0.3)' : '#4F46E5', border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: selecionadosReplicar.length === 0 ? 'not-allowed' : 'pointer', opacity: replicando ? 0.7 : 1 }}>
+                {replicando ? 'Replicando...' : `Replicar ${selecionadosReplicar.length} despesa(s)`}
               </button>
             </div>
           </div>
