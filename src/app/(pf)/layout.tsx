@@ -257,7 +257,7 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
           {diasTrial !== null && (
             <div style={{ margin: '16px 12px 0', padding: '12px', background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 10 }}>
               <div style={{ fontSize: 11, color: '#818CF8', fontWeight: 600, marginBottom: 6 }}>
-                {diasTrial > 0 ? `${diasTrial} dias de trial` : 'Trial encerrado'}
+                {diasTrial > 0 ? `${diasTrial} dia${diasTrial !== 1 ? 's' : ''} de trial restante${diasTrial !== 1 ? 's' : ''}` : 'Trial encerrado'}
               </div>
               <a href="/assinar" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#fff', background: '#4F46E5', textDecoration: 'none', padding: '7px 0', borderRadius: 7, textAlign: 'center' }}>
                 Assinar Pro →
