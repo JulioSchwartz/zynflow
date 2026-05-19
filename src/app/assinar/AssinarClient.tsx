@@ -12,7 +12,6 @@ const PLANOS = {
     precoNum: 'R$ 19,90',
     cor:      INDIGO,
     titulo:   'Zynflow Pro — Autônomo',
-    trial:    '30 dias',
     itens: [
       'Dashboard com Método 3 Passos completo',
       'Teto semanal calculado automaticamente',
@@ -27,7 +26,6 @@ const PLANOS = {
     precoNum: 'R$ 34,90',
     cor:      VERDE,
     titulo:   'Zynflow Pro — CLT/Assalariado',
-    trial:    '30 dias',
     itens: [
       'Dashboard financeiro completo para CLT',
       'Controle de salário e despesas mensais',
@@ -42,12 +40,13 @@ const PLANOS = {
 export default function AssinarClient() {
   const router   = useRouter()
   const params   = useSearchParams()
-  const [nome, setNome]           = useState('')
-  const [email, setEmail]         = useState('')
-  const [userId, setUserId]       = useState('')
-  const [perfil, setPerfil]       = useState<'autonomo' | 'pf'>('autonomo')
-  const [loading, setLoading]     = useState(true)
-  const [iniciando, setIniciando] = useState(false)
+  const [nome, setNome]               = useState('')
+  const [email, setEmail]             = useState('')
+  const [userId, setUserId]           = useState('')
+  const [perfil, setPerfil]           = useState<'autonomo' | 'pf'>('autonomo')
+  const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
+  const [loading, setLoading]         = useState(true)
+  const [iniciando, setIniciando]     = useState(false)
   const sucesso = params.get('assinatura') === 'sucesso'
 
   useEffect(() => {
@@ -57,13 +56,20 @@ export default function AssinarClient() {
 
       const { data } = await supabase
         .from('usuarios_flow')
-        .select('nome, status, plano, perfil')
+        .select('nome, status, plano, perfil, trial_ends_at')
         .eq('user_id', user.id)
         .single()
 
       if (data?.status === 'ativo') {
         router.push(data?.perfil === 'pf' ? '/pf/dashboard' : '/dashboard')
         return
+      }
+
+      // Calcula dias restantes do trial
+      if (data?.trial_ends_at) {
+        const diff = new Date(data.trial_ends_at).getTime() - Date.now()
+        const dias = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+        setDiasRestantes(dias)
       }
 
       setNome(data?.nome || '')
@@ -94,6 +100,17 @@ export default function AssinarClient() {
       <span style={{ color: '#6B7280', fontFamily: 'system-ui, sans-serif' }}>Carregando...</span>
     </div>
   )
+
+  // Texto do trial restante
+  const textoTrial = diasRestantes === null
+    ? 'seu período gratuito de 30 dias'
+    : diasRestantes === 0
+    ? 'seu trial'
+    : `seu trial (${diasRestantes} dia${diasRestantes !== 1 ? 's' : ''} restante${diasRestantes !== 1 ? 's' : ''})`
+
+  const badgeTrial = diasRestantes !== null && diasRestantes > 0
+    ? `⏳ ${diasRestantes} dia${diasRestantes !== 1 ? 's' : ''} de trial restante${diasRestantes !== 1 ? 's' : ''}`
+    : '⏰ Trial encerrado'
 
   return (
     <div style={{
@@ -135,11 +152,23 @@ export default function AssinarClient() {
           </>
         ) : (
           <>
+            {/* Badge dias restantes */}
+            <div style={{
+              display: 'inline-block', marginBottom: 20,
+              background: diasRestantes !== null && diasRestantes > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+              border: `1px solid ${diasRestantes !== null && diasRestantes > 0 ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+              borderRadius: 100, padding: '6px 16px',
+              fontSize: 13, fontWeight: 600,
+              color: diasRestantes !== null && diasRestantes > 0 ? '#fcd34d' : '#fca5a5',
+            }}>
+              {badgeTrial}
+            </div>
+
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#fff', marginBottom: 8 }}>
-              Seu trial encerrou
+              {diasRestantes === 0 ? 'Seu trial encerrou' : 'Assine o Zynflow Pro'}
             </h1>
             <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 36, lineHeight: 1.65 }}>
-              {nome ? `${nome}, o` : 'O'} seu período gratuito de {plano.trial} chegou ao fim. Para continuar usando o Zynflow, ative sua assinatura por apenas <strong style={{ color: '#fff' }}>{plano.precoNum}</strong>.
+              {nome ? `${nome}, ` : ''}{diasRestantes === 0 ? `${textoTrial} chegou ao fim.` : `Aproveite ${textoTrial} ou assine agora.`} Continue usando o Zynflow por apenas <strong style={{ color: '#fff' }}>{plano.precoNum}</strong>.
             </p>
 
             {/* Card do plano */}
