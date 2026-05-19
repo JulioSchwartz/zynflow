@@ -138,8 +138,7 @@ export default function DespesasClient() {
     if (abaEfetiva === 'fixa' || abaEfetiva === 'variavel') {
       const form = abaEfetiva === 'fixa' ? formF : formV
       if (!form.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
-      const form = aba === 'fixa' ? formF : formV
-      const retroativo = form.retroativo || false
+      const retroativo = (form as any).retroativo || false
       const p = {
         tipo: form.tipo, categoria: form.categoria, descricao: form.descricao,
         valor_mensal: parseMoeda(String(form.valor_mensal)),
