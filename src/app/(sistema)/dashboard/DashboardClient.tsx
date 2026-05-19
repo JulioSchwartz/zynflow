@@ -57,6 +57,8 @@ export default function DashboardClient() {
   const [loading,    setLoading]      = useState(true)
   const [menuLancar, setMenuLancar]   = useState(false)
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
+  const [primeiroAcesso, setPrimeiroAcesso] = useState(false)
+  const [bannerFechado, setBannerFechado] = useState(false)
 
   useEffect(() => {
     async function carregar() {
@@ -76,6 +78,11 @@ export default function DashboardClient() {
       ])
 
       setNomeUsuario(u.data?.nome || '')
+
+      // Detecta primeiro acesso: nenhuma receita, despesa ou conta cadastrada
+      const semDados = (r.data?.length === 0) && (f.data?.length === 0) && (v.data?.length === 0) && (d.data?.length === 0) && (c.data?.length === 0)
+      const bannerJaFechado = localStorage.getItem('zynflow_banner_retroativo') === 'fechado'
+      if (semDados && !bannerJaFechado) setPrimeiroAcesso(true)
       setReceitas(r.data || [])
       setFixas(f.data || [])
       setVariaveis(v.data || [])
@@ -208,6 +215,39 @@ export default function DashboardClient() {
           )}
         </div>
       </div>
+
+
+      {/* Banner boas-vindas / retroativo */}
+      {primeiroAcesso && !bannerFechado && (
+        <div style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.25)', borderRadius: 14, padding: '20px 24px', marginBottom: 20, position: 'relative' as const }}>
+          <button onClick={() => { setBannerFechado(true); localStorage.setItem('zynflow_banner_retroativo', 'fechado') }}
+            style={{ position: 'absolute' as const, top: 12, right: 16, background: 'none', border: 'none', color: '#4B5563', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 28, flexShrink: 0 }}>👋</span>
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 700, color: '#fff' }}>
+                Bem-vindo ao Zynflow, {nomeUsuario.split(' ')[0]}!
+              </p>
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#9CA3AF', lineHeight: 1.6 }}>
+                Parece que você está começando no meio do mês. Se já recebeu e pagou contas antes de hoje, use o <strong style={{ color: '#fcd34d' }}>Lançamento Retroativo</strong> ao cadastrar essas despesas.
+              </p>
+              <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#fcd34d', lineHeight: 1.6 }}>
+                  📅 <strong>O que é Lançamento Retroativo?</strong> Ao lançar uma despesa já paga, marque a opção "Lançamento retroativo" — assim ela fica registrada no histórico mas <strong>não deduz do saldo atual</strong> das suas contas, evitando que o saldo fique negativo.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const }}>
+                <a href="/receitas" style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: INDIGO, padding: '7px 16px', borderRadius: 8, textDecoration: 'none' }}>
+                  + Lançar receitas →
+                </a>
+                <a href="/despesas" style={{ fontSize: 13, fontWeight: 600, color: '#818CF8', background: 'rgba(79,70,229,0.1)', padding: '7px 16px', borderRadius: 8, textDecoration: 'none' }}>
+                  + Lançar despesas →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPIs principais */}
       <div className="db-kpis">

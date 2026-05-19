@@ -27,6 +27,7 @@ interface Fixa {
   id: string; tipo: string; categoria: string; descricao: string
   valor_mensal: number; dia_vencimento: number | null
   pago: boolean; valor_pago: number; mes: number; ano: number; conta_id: string | null
+  retroativo: boolean
 }
 interface Diaria {
   id: string; categoria: string; descricao: string; valor: number
@@ -34,8 +35,8 @@ interface Diaria {
 }
 interface Conta { id: string; nome: string }
 
-const VAZIO_F = { tipo: 'fixa',    categoria: 'Moradia',           descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '' }
-const VAZIO_V = { tipo: 'variavel',categoria: 'Cartão de Crédito', descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '' }
+const VAZIO_F = { tipo: 'fixa',    categoria: 'Moradia',           descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '', retroativo: false }
+const VAZIO_V = { tipo: 'variavel',categoria: 'Cartão de Crédito', descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '', retroativo: false }
 const VAZIO_D = { categoria: 'Restaurante', descricao: '', valor: '' as any, data: new Date().toISOString().split('T')[0], conta_id: '' }
 
 function InfoTooltip({ texto }: { texto: string }) {
@@ -118,9 +119,9 @@ export default function DespesasClient() {
   function abrirEditarF(f: Fixa) {
     setEditandoF(f)
     if (f.tipo === 'fixa') {
-      setFormF({ tipo: 'fixa', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago, conta_id: f.conta_id || '' })
+      setFormF({ tipo: 'fixa', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago, conta_id: f.conta_id || '', retroativo: f.retroativo || false })
     } else {
-      setFormV({ tipo: 'variavel', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago, conta_id: f.conta_id || '' })
+      setFormV({ tipo: 'variavel', categoria: f.categoria, descricao: f.descricao, valor_mensal: f.valor_mensal, dia_vencimento: f.dia_vencimento, pago: f.pago, valor_pago: f.valor_pago, conta_id: f.conta_id || '', retroativo: f.retroativo || false })
     }
     setErro(''); setModal(true)
   }
@@ -137,15 +138,21 @@ export default function DespesasClient() {
     if (abaEfetiva === 'fixa' || abaEfetiva === 'variavel') {
       const form = abaEfetiva === 'fixa' ? formF : formV
       if (!form.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
+      const form = aba === 'fixa' ? formF : formV
+      const retroativo = form.retroativo || false
       const p = {
         tipo: form.tipo, categoria: form.categoria, descricao: form.descricao,
         valor_mensal: parseMoeda(String(form.valor_mensal)),
         dia_vencimento: form.dia_vencimento, pago: form.pago,
         valor_pago: form.valor_pago, conta_id: form.conta_id || null,
+        retroativo,
         mes: mesSel, ano: anoSel,
       }
-      if (editandoF) await supabase.from('despesas_fixas_flow').update(p).eq('id', editandoF.id)
-      else await supabase.from('despesas_fixas_flow').insert({ ...p, user_id: userId })
+      if (editandoF) {
+        await supabase.from('despesas_fixas_flow').update(p).eq('id', editandoF.id)
+      } else {
+        await supabase.from('despesas_fixas_flow').insert({ ...p, user_id: userId })
+      }
     } else {
       if (!formD.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
       const valor = parseMoeda(String(formD.valor))
@@ -692,13 +699,33 @@ export default function DespesasClient() {
                     </select>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <input type="checkbox" id="pago"
                     checked={aba === 'fixa' ? formF.pago : formV.pago}
                     onChange={e => aba === 'fixa' ? setFormF((p: any) => ({ ...p, pago: e.target.checked })) : setFormV((p: any) => ({ ...p, pago: e.target.checked }))}
                     style={{ width: 18, height: 18, accentColor: INDIGO }} />
                   <label htmlFor="pago" style={{ fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Já pago</label>
                 </div>
+
+                {/* Lançamento retroativo — só aparece se "já pago" estiver marcado */}
+                {(aba === 'fixa' ? formF.pago : formV.pago) && (
+                  <div style={{ marginBottom: 20, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <input type="checkbox" id="retroativo"
+                        checked={aba === 'fixa' ? formF.retroativo : formV.retroativo}
+                        onChange={e => aba === 'fixa' ? setFormF((p: any) => ({ ...p, retroativo: e.target.checked })) : setFormV((p: any) => ({ ...p, retroativo: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: AMBER, marginTop: 2, flexShrink: 0 }} />
+                      <div>
+                        <label htmlFor="retroativo" style={{ fontSize: 13, color: '#fcd34d', fontWeight: 600, cursor: 'pointer', display: 'block', marginBottom: 3 }}>
+                          📅 Lançamento retroativo
+                        </label>
+                        <p style={{ fontSize: 12, color: '#92400e', margin: 0, lineHeight: 1.5 }}>
+                          Esta conta já foi paga antes de você começar a usar o Zynflow. Marque esta opção para registrá-la sem deduzir do saldo atual das suas contas.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>
