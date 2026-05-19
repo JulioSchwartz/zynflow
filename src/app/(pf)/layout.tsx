@@ -27,6 +27,10 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [nomeUsuario, setNomeUsuario]           = useState('')
   const [diasTrial, setDiasTrial]               = useState<number | null>(null)
+  const [modalPerfil, setModalPerfil]     = useState(false)
+  const [nomeEditando, setNomeEditando]   = useState('')
+  const [salvandoPerfil, setSalvandoPerfil] = useState(false)
+  const [erroNome, setErroNome]           = useState('')
   const [menuAberto, setMenuAberto]             = useState(false)
   const [mostrarBannerPWA, setMostrarBannerPWA] = useState(false)
   const [isIOS, setIsIOS]                       = useState(false)
@@ -85,6 +89,18 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
     }
     verificar()
   }, [router, pathname])
+
+  async function salvarPerfil() {
+    if (!nomeEditando.trim()) { setErroNome('Informe seu nome.'); return }
+    setSalvandoPerfil(true)
+    setErroNome('')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSalvandoPerfil(false); return }
+    await supabase.from('usuarios_flow').update({ nome: nomeEditando.trim() }).eq('user_id', user.id)
+    setNomeUsuario(nomeEditando.trim())
+    setSalvandoPerfil(false)
+    setModalPerfil(false)
+  }
 
   function fecharBannerPWA() {
     localStorage.setItem('zynflow_pwa_banner', 'fechado')
@@ -225,7 +241,10 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>→</span> Sair
           </button>
-          <div title={nomeUsuario} style={{ width: 32, height: 32, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#fff' }}>
+          <div
+            title="Editar perfil"
+            onClick={() => { setNomeEditando(nomeUsuario); setErroNome(''); setModalPerfil(true) }}
+            style={{ width: 32, height: 32, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
             {iniciais || 'Z'}
           </div>
         </div>
@@ -280,6 +299,45 @@ export default function PFLayout({ children }: { children: React.ReactNode }) {
         </div>
 
       </div>
+
+      {/* MODAL PERFIL */}
+      {modalPerfil && (
+        <div onClick={() => setModalPerfil(false)} style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 380 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#fff' }}>
+                {iniciais || 'Z'}
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>{nomeUsuario}</div>
+                <div style={{ fontSize: 12, color: '#6B7280' }}>Editar perfil</div>
+              </div>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Seu nome</label>
+              <input
+                type="text"
+                value={nomeEditando}
+                onChange={e => setNomeEditando(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && salvarPerfil()}
+                placeholder="Seu nome completo"
+                style={{ width: '100%', background: '#07080F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box' as const }}
+              />
+              {erroNome && <p style={{ color: '#FCA5A5', fontSize: 12, marginTop: 6 }}>{erroNome}</p>}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setModalPerfil(false)}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 11, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={salvarPerfil} disabled={salvandoPerfil}
+                style={{ flex: 2, background: '#4F46E5', border: 'none', borderRadius: 8, padding: 11, fontSize: 14, fontWeight: 600, color: '#fff', cursor: salvandoPerfil ? 'not-allowed' : 'pointer', opacity: salvandoPerfil ? 0.7 : 1 }}>
+                {salvandoPerfil ? 'Salvando...' : 'Salvar nome'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
