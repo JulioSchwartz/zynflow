@@ -113,6 +113,15 @@ export default function ReceitasClient() {
     const contaId        = form.conta_id || null
     const novoStatus     = valorRecebido > 0 ? 'recebido' : form.status
 
+    // Se tem data prevista futura, salva no mês da data prevista
+    let mesFinal = mesSel
+    let anoFinal = anoSel
+    if (form.data_prevista && valorRecebido === 0) {
+      const dp = new Date(form.data_prevista + 'T12:00:00')
+      mesFinal = dp.getMonth() + 1
+      anoFinal = dp.getFullYear()
+    }
+
     const payload = {
       fonte: form.fonte,
       data_prevista: form.data_prevista || null,
@@ -122,8 +131,8 @@ export default function ReceitasClient() {
       status: novoStatus,
       observacoes: form.observacoes || null,
       conta_id: contaId,
-      mes: mesSel,
-      ano: anoSel,
+      mes: mesFinal,
+      ano: anoFinal,
     }
 
     if (editando) {
@@ -205,11 +214,16 @@ export default function ReceitasClient() {
   const totalRecebido = receitas.reduce((s, r) => s + r.valor_recebido, 0)
   const pct = totalPrevisto > 0 ? Math.round((totalRecebido / totalPrevisto) * 100) : 0
 
-  const corStatus = (s: string) => s === 'recebido'
-    ? { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80', label: 'recebido' }
-    : s === 'parcial'
-    ? { bg: 'rgba(245,158,11,0.1)', txt: '#FCD34D', label: 'parcial' }
-    : { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF', label: 'pendente' }
+  const corStatus = (s: string, dataPrevista?: string | null) => {
+    if (s === 'recebido') return { bg: 'rgba(34,197,94,0.1)', txt: '#4ade80', label: 'recebido' }
+    if (s === 'parcial')  return { bg: 'rgba(245,158,11,0.1)', txt: '#FCD34D', label: 'parcial' }
+    // Pendente com data futura = prevista
+    if (dataPrevista) {
+      const dp = new Date(dataPrevista + 'T12:00:00')
+      if (dp > new Date()) return { bg: 'rgba(79,70,229,0.1)', txt: '#818CF8', label: '📅 prevista' }
+    }
+    return { bg: 'rgba(255,255,255,0.05)', txt: '#9CA3AF', label: 'pendente' }
+  }
 
   const nomeConta = (id: string | null) => {
     if (!id) return null
@@ -302,7 +316,7 @@ export default function ReceitasClient() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
           {receitas.map(r => {
-            const st = corStatus(r.status)
+            const st = corStatus(r.status, r.data_prevista)
             const nc = nomeConta(r.conta_id)
             return (
               <div key={r.id} style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 18px' }}>
@@ -365,6 +379,19 @@ export default function ReceitasClient() {
               <div>
                 <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Data prevista</label>
                 <input type="date" value={form.data_prevista} onChange={e => setForm(p => ({ ...p, data_prevista: e.target.value }))} style={inp} />
+                {form.data_prevista && (() => {
+                  const dp = new Date(form.data_prevista + 'T12:00:00')
+                  const mesDP = dp.getMonth() + 1
+                  const anoDP = dp.getFullYear()
+                  if (mesDP !== mesSel || anoDP !== anoSel) {
+                    return (
+                      <p style={{ fontSize: 11, color: '#818CF8', marginTop: 6 }}>
+                        📅 Esta receita será lançada em <strong>{['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mesDP-1]}/{anoDP}</strong> com status "prevista".
+                      </p>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </div>
 
