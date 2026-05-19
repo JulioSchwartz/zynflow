@@ -103,6 +103,15 @@ export default function CadastroClient() {
       }
     }
 
+    // Dispara evento Meta Pixel
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      ;(window as any).fbq('track', 'CompleteRegistration', {
+        content_name: perfil === 'pf' ? 'Zynflow PF' : 'Zynflow Autônomo',
+        currency: 'BRL',
+        value: perfil === 'pf' ? 34.90 : 19.90,
+      })
+    }
+
     // Mostra tela de sucesso e redireciona após 2.5s
     setEtapa('sucesso')
     const url = data.jaExistia ? '/dashboard' : (perfil === 'pf' ? '/pf/setup' : '/setup')
