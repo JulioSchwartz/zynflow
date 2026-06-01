@@ -138,6 +138,7 @@ export default function DespesasClient() {
     if (abaEfetiva === 'fixa' || abaEfetiva === 'variavel') {
       const form = abaEfetiva === 'fixa' ? formF : formV
       if (!form.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
+      if (!form.conta_id) { setErro('Selecione a conta de pagamento.'); setSalvando(false); return }
       const retroativo = (form as any).retroativo || false
       const p = {
         tipo: form.tipo, categoria: form.categoria, descricao: form.descricao,
@@ -154,6 +155,7 @@ export default function DespesasClient() {
       }
     } else {
       if (!formD.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
+      if (!formD.conta_id) { setErro('Selecione a conta.'); setSalvando(false); return }
       const valor = parseMoeda(String(formD.valor))
       if (!valor || valor <= 0) { setErro('Informe o valor.'); setSalvando(false); return }
       const d = new Date(formD.data + 'T12:00:00')
@@ -693,8 +695,8 @@ export default function DespesasClient() {
                     <select value={aba === 'fixa' ? formF.conta_id : formV.conta_id}
                       onChange={e => aba === 'fixa' ? setFormF((p: any) => ({ ...p, conta_id: e.target.value })) : setFormV((p: any) => ({ ...p, conta_id: e.target.value }))}
                       style={inp}>
-                      <option value="">Sem conta</option>
-                      {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                      <option value="">Selecione a conta *</option>
+      {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
                 </div>

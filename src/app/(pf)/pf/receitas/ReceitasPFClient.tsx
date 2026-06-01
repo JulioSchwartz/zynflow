@@ -100,6 +100,7 @@ export default function ReceitasPFClient() {
 
   async function salvar() {
     if (!form.fonte.trim()) { setErro('Informe a fonte da receita.'); return }
+    if (!form.conta_id) { setErro('Selecione a conta de destino.'); return }
     setSalvando(true); setErro('')
 
     const valorPrevisto = parseFloat(String(form.valor_previsto).replace(',', '.')) || 0
@@ -389,7 +390,7 @@ export default function ReceitasPFClient() {
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta de destino</label>
               <select value={form.conta_id} onChange={e => setForm(p => ({ ...p, conta_id: e.target.value }))}
                 style={{ ...inp, appearance: 'auto' as any }}>
-                <option value="">Sem conta específica</option>
+                <option value="">Selecione a conta *</option>
                 {contas.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.banco ? `${c.banco} · ${c.nome}` : c.nome}
