@@ -79,7 +79,6 @@ export default function DashboardClient() {
 
       setNomeUsuario(u.data?.nome || '')
 
-      // Detecta primeiro acesso: nenhuma receita, despesa ou conta cadastrada
       const semDados = (r.data?.length === 0) && (f.data?.length === 0) && (v.data?.length === 0) && (d.data?.length === 0) && (c.data?.length === 0)
       const bannerJaFechado = localStorage.getItem('zynflow_banner_retroativo') === 'fechado'
       if (semDados && !bannerJaFechado) setPrimeiroAcesso(true)
@@ -114,26 +113,20 @@ export default function DashboardClient() {
   const totalPendente = todasDespesas.filter(d => !d.pago && !(d.dia_vencimento && d.dia_vencimento <= new Date().getDate())).reduce((s, d) => s + (d.valor || 0), 0)
   const totalVencido  = todasDespesas.filter(d => !d.pago && d.dia_vencimento && d.dia_vencimento <= new Date().getDate()).reduce((s, d) => s + (d.valor || 0), 0)
 
-  const receitaConsv   = totalPrevisto > 0 ? totalPrevisto : totalRecebido
-  const tetoSemanal    = Math.round((receitaConsv / 4) * 0.3)
-  const hoje           = new Date()
-  const diariasSemana  = diarias
+  const receitaConsv  = totalPrevisto > 0 ? totalPrevisto : totalRecebido
+  const tetoSemanal   = Math.round((receitaConsv / 4) * 0.3)
+  const hoje          = new Date()
+  const diariasSemana = diarias
     .filter(d => {
       const dt = new Date(d.data + 'T12:00:00')
       return Math.ceil(dt.getDate() / 7) === semanaDoMes
     })
     .reduce((s, d) => s + (d.valor || 0), 0)
-  const pctTeto        = tetoSemanal > 0 ? Math.round((diariasSemana / tetoSemanal) * 100) : 0
-  const restante       = tetoSemanal - diariasSemana
+  const pctTeto   = tetoSemanal > 0 ? Math.round((diariasSemana / tetoSemanal) * 100) : 0
+  const restante  = tetoSemanal - diariasSemana
 
-  const contasComSaldo = contas.map(c => {
-    const entradasConta   = receitas.filter(r => r.conta_id === c.id).reduce((s, r) => s + (r.valor_recebido || 0), 0)
-    const saidasDiarias   = diarias.filter(d => d.conta_id === c.id).reduce((s, d) => s + (d.valor || 0), 0)
-    const saidasFixas     = fixas.filter(f => f.conta_id === c.id && f.pago).reduce((s, f) => s + (f.valor_mensal || 0), 0)
-    const saidasVariaveis = variaveis.filter(v => v.conta_id === c.id && v.pago).reduce((s, v) => s + (v.valor_mensal || 0), 0)
-    return { ...c, saldo: (c.saldo_inicial || 0) + entradasConta - saidasDiarias - saidasFixas - saidasVariaveis }
-  })
-  const saldoTotal = contasComSaldo.reduce((s, c) => s + c.saldo, 0)
+  // ✅ CORRIGIDO: usa saldo_inicial diretamente (atualizado a cada pagamento/recebimento)
+  const saldoTotal = contas.reduce((s, c) => s + (c.saldo_inicial || 0), 0)
 
   // Gastos por categoria — fixas + variáveis + diárias
   const catMap: Record<string, number> = {}
@@ -215,7 +208,6 @@ export default function DashboardClient() {
           )}
         </div>
       </div>
-
 
       {/* Banner boas-vindas / retroativo */}
       {primeiroAcesso && !bannerFechado && (
@@ -303,7 +295,6 @@ export default function DashboardClient() {
         </Card>
 
         <Card title="Despesas — status">
-          {/* Filtro de status */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' as const }}>
             {(['todos', 'pago', 'pendente', 'vencida'] as FiltroStatus[]).map(f => (
               <button key={f} onClick={() => setFiltroStatus(f)} style={{
@@ -392,12 +383,12 @@ export default function DashboardClient() {
         </Card>
 
         <Card title="Contas bancárias">
-          {contasComSaldo.length === 0 ? (
+          {contas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>Nenhuma conta cadastrada</p>
               <a href="/contas" style={{ fontSize: 13, color: '#818CF8' }}>+ Adicionar conta</a>
             </div>
-          ) : contasComSaldo.map(c => (
+          ) : contas.map(c => (
             <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: `${c.cor || INDIGO}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: c.cor || INDIGO }}>{c.nome.slice(0, 2).toUpperCase()}</div>
@@ -406,10 +397,10 @@ export default function DashboardClient() {
                   <div style={{ fontSize: 11, color: '#6B7280' }}>{c.tipo}</div>
                 </div>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: c.saldo >= 0 ? VERDE : VERM }}>{fmt(c.saldo)}</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: (c.saldo_inicial || 0) >= 0 ? VERDE : VERM }}>{fmt(c.saldo_inicial || 0)}</div>
             </div>
           ))}
-          {contasComSaldo.length > 0 && (
+          {contas.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
               <span style={{ fontSize: 12, color: '#6B7280' }}>Saldo total</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{fmt(saldoTotal)}</span>

@@ -12,11 +12,10 @@ const CATS_FIXA     = ['Moradia','Financiamento','Plano de Saúde','Educação',
 const CATS_VARIAVEL = ['Cartão de Crédito','Conta de Luz','Água/Gás','Condomínio','Combustível','Internet/Telefone','Supermercado','Outro']
 const CATS_DIARIA   = ['Restaurante','Delivery','Mercado','Lazer','Roupas','Farmácia','Presente','Viagem','Outro']
 
-const INFO_FIXA     = 'Despesas fixas são contas com valor definido que se repetem todo mês, como aluguel, financiamento e plano de saúde.'
-const INFO_VARIAVEL = 'Despesas variáveis são contas que chegam todo mês mas o valor pode mudar, como luz, água e cartão de crédito.'
-const INFO_DIARIA   = 'Gastos diários são despesas do dia a dia sem data fixa de vencimento, como alimentação, lazer e compras.'
+const INFO_FIXA       = 'Despesas fixas são contas com valor definido que se repetem todo mês, como aluguel, financiamento e plano de saúde.'
+const INFO_VARIAVEL   = 'Despesas variáveis são contas que chegam todo mês mas o valor pode mudar, como luz, água e cartão de crédito.'
+const INFO_DIARIA     = 'Gastos diários são despesas do dia a dia sem data fixa de vencimento, como alimentação, lazer e compras.'
 const INFO_CONSOLIDAR = 'Mostra todas as despesas do mês em uma só tela — fixas, variáveis e diárias juntas — para você ter uma visão geral completa.'
-const INFO_REPLICAR = 'Copia as despesas fixas ou variáveis do mês atual para o mês seguinte, mantendo os mesmos valores e categorias. Útil para contas que se repetem.'
 
 function fmt(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 function parseMoeda(s: string) { return parseFloat(s.replace(',', '.')) || 0 }
@@ -33,10 +32,10 @@ interface Diaria {
   id: string; categoria: string; descricao: string; valor: number
   data: string; mes: number; ano: number; conta_id: string | null
 }
-interface Conta { id: string; nome: string }
+interface Conta { id: string; nome: string; saldo_inicial: number }
 
-const VAZIO_F = { tipo: 'fixa',    categoria: 'Moradia',           descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '', retroativo: false }
-const VAZIO_V = { tipo: 'variavel',categoria: 'Cartão de Crédito', descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '', retroativo: false }
+const VAZIO_F = { tipo: 'fixa',     categoria: 'Moradia',           descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '', retroativo: false }
+const VAZIO_V = { tipo: 'variavel', categoria: 'Cartão de Crédito', descricao: '', valor_mensal: '' as any, dia_vencimento: null as number | null, pago: false, valor_pago: 0, conta_id: '', retroativo: false }
 const VAZIO_D = { categoria: 'Restaurante', descricao: '', valor: '' as any, data: new Date().toISOString().split('T')[0], conta_id: '' }
 
 function InfoTooltip({ texto }: { texto: string }) {
@@ -56,6 +55,16 @@ function InfoTooltip({ texto }: { texto: string }) {
       )}
     </span>
   )
+}
+
+// Helpers para atualizar saldo_inicial da conta
+async function creditarConta(contaId: string, valor: number) {
+  const { data } = await supabase.from('contas_flow').select('saldo_inicial').eq('id', contaId).single()
+  if (data) await supabase.from('contas_flow').update({ saldo_inicial: data.saldo_inicial + valor }).eq('id', contaId)
+}
+async function debitarConta(contaId: string, valor: number) {
+  const { data } = await supabase.from('contas_flow').select('saldo_inicial').eq('id', contaId).single()
+  if (data) await supabase.from('contas_flow').update({ saldo_inicial: data.saldo_inicial - valor }).eq('id', contaId)
 }
 
 export default function DespesasClient() {
@@ -82,18 +91,21 @@ export default function DespesasClient() {
   const [modalReplicar, setModalReplicar] = useState(false)
   const [selecionadosReplicar, setSelecionadosReplicar] = useState<string[]>([])
 
+  async function carregarContas(uid: string) {
+    const { data } = await supabase.from('contas_flow').select('id, nome, saldo_inicial').eq('user_id', uid)
+    setContas(data || [])
+  }
+
   async function carregar(uid: string, mes: number, ano: number) {
     setLoading(true)
-    const [fx, vr, dr, ct] = await Promise.all([
+    const [fx, vr, dr] = await Promise.all([
       supabase.from('despesas_fixas_flow').select('*').eq('user_id', uid).eq('mes', mes).eq('ano', ano).eq('tipo', 'fixa').order('dia_vencimento', { ascending: true, nullsFirst: false }),
       supabase.from('despesas_fixas_flow').select('*').eq('user_id', uid).eq('mes', mes).eq('ano', ano).eq('tipo', 'variavel').order('dia_vencimento', { ascending: true, nullsFirst: false }),
       supabase.from('despesas_variaveis_flow').select('*').eq('user_id', uid).eq('mes', mes).eq('ano', ano).order('data', { ascending: false }),
-      supabase.from('contas_flow').select('id, nome').eq('user_id', uid),
     ])
     setFixas(fx.data || [])
     setVariaveis(vr.data || [])
     setDiarias(dr.data || [])
-    setContas(ct.data || [])
     setLoading(false)
   }
 
@@ -102,7 +114,10 @@ export default function DespesasClient() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setUserId(user.id)
-      await carregar(user.id, mesSel, anoSel)
+      await Promise.all([
+        carregar(user.id, mesSel, anoSel),
+        carregarContas(user.id),
+      ])
     }
     init()
   }, [])
@@ -135,25 +150,49 @@ export default function DespesasClient() {
   async function salvar() {
     setSalvando(true); setErro('')
     const abaEfetiva = aba === 'consolidado' ? (editandoF ? (editandoF.tipo === 'fixa' ? 'fixa' : 'variavel') : 'diaria') : aba
+
     if (abaEfetiva === 'fixa' || abaEfetiva === 'variavel') {
       const form = abaEfetiva === 'fixa' ? formF : formV
       if (!form.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
       if (!form.conta_id) { setErro('Selecione a conta de pagamento.'); setSalvando(false); return }
       const retroativo = (form as any).retroativo || false
+      const valor = parseMoeda(String(form.valor_mensal))
       const p = {
         tipo: form.tipo, categoria: form.categoria, descricao: form.descricao,
-        valor_mensal: parseMoeda(String(form.valor_mensal)),
+        valor_mensal: valor,
         dia_vencimento: form.dia_vencimento, pago: form.pago,
         valor_pago: form.valor_pago, conta_id: form.conta_id || null,
         retroativo,
         mes: mesSel, ano: anoSel,
       }
+
       if (editandoF) {
+        // Se estava pago antes e não era retroativo: precisa ajustar conta
+        const estavaPago     = editandoF.pago && !editandoF.retroativo
+        const contaAnterior  = editandoF.conta_id
+        const valorAnterior  = editandoF.valor_mensal
+        const ficaPago       = form.pago && !retroativo
+        const contaNova      = form.conta_id || null
+        const valorNovo      = valor
+
+        if (estavaPago && contaAnterior) {
+          // Estorna da conta anterior
+          await creditarConta(contaAnterior, valorAnterior)
+        }
+        if (ficaPago && contaNova) {
+          // Debita da conta nova
+          await debitarConta(contaNova, valorNovo)
+        }
         await supabase.from('despesas_fixas_flow').update(p).eq('id', editandoF.id)
       } else {
+        // Nova despesa: se já marcada como paga e não retroativa, debita da conta
+        if (form.pago && !retroativo && form.conta_id) {
+          await debitarConta(form.conta_id, valor)
+        }
         await supabase.from('despesas_fixas_flow').insert({ ...p, user_id: userId })
       }
     } else {
+      // Diária
       if (!formD.descricao.trim()) { setErro('Informe a descrição.'); setSalvando(false); return }
       if (!formD.conta_id) { setErro('Selecione a conta.'); setSalvando(false); return }
       const valor = parseMoeda(String(formD.valor))
@@ -164,15 +203,35 @@ export default function DespesasClient() {
         data: formD.data, conta_id: formD.conta_id || null,
         mes: d.getMonth() + 1, ano: d.getFullYear(),
       }
-      if (editandoD) await supabase.from('despesas_variaveis_flow').update(p).eq('id', editandoD.id)
-      else await supabase.from('despesas_variaveis_flow').insert({ ...p, user_id: userId })
+      if (editandoD) {
+        // Ajusta diferença de valor/conta na conta
+        const valorAnterior = editandoD.valor
+        const contaAnterior = editandoD.conta_id
+        const contaNova     = formD.conta_id || null
+
+        if (contaAnterior) await creditarConta(contaAnterior, valorAnterior)
+        if (contaNova)     await debitarConta(contaNova, valor)
+        await supabase.from('despesas_variaveis_flow').update(p).eq('id', editandoD.id)
+      } else {
+        // Nova diária: sempre debita (diária = sempre paga no ato)
+        if (formD.conta_id) await debitarConta(formD.conta_id, valor)
+        await supabase.from('despesas_variaveis_flow').insert({ ...p, user_id: userId })
+      }
     }
+
+    await carregarContas(userId!)
     await carregar(userId!, mesSel, anoSel)
     setSalvando(false); setModal(false)
   }
 
   async function excluirF(id: string) {
     if (!confirm('Excluir esta despesa?')) return
+    const despesa = [...fixas, ...variaveis].find(f => f.id === id)
+    // Se estava paga e não era retroativa: estorna da conta
+    if (despesa && despesa.pago && !despesa.retroativo && despesa.conta_id) {
+      await creditarConta(despesa.conta_id, despesa.valor_mensal)
+      await carregarContas(userId!)
+    }
     await supabase.from('despesas_fixas_flow').delete().eq('id', id)
     setFixas(prev => prev.filter(f => f.id !== id))
     setVariaveis(prev => prev.filter(f => f.id !== id))
@@ -180,21 +239,36 @@ export default function DespesasClient() {
 
   async function excluirD(id: string) {
     if (!confirm('Excluir este lançamento?')) return
+    const diaria = diarias.find(d => d.id === id)
+    // Diária sempre foi paga: estorna da conta
+    if (diaria && diaria.conta_id) {
+      await creditarConta(diaria.conta_id, diaria.valor)
+      await carregarContas(userId!)
+    }
     await supabase.from('despesas_variaveis_flow').delete().eq('id', id)
     setDiarias(prev => prev.filter(d => d.id !== id))
   }
 
   function pedirConfirmPago(f: Fixa) {
     if (f.pago) {
-      // Desmarcar pago: sem confirmação
       togglePagoConfirmado(f, false)
     } else {
-      // Marcar como pago: pede confirmação
       setModalConfirmPago({ despesa: f })
     }
   }
 
   async function togglePagoConfirmado(f: Fixa, pago: boolean) {
+    // Não movimenta conta se for retroativo
+    if (!f.retroativo && f.conta_id) {
+      if (pago) {
+        // Marcando como pago: debita da conta
+        await debitarConta(f.conta_id, f.valor_mensal)
+      } else {
+        // Desmarcando: estorna para a conta
+        await creditarConta(f.conta_id, f.valor_mensal)
+      }
+      await carregarContas(userId!)
+    }
     await supabase.from('despesas_fixas_flow').update({ pago, valor_pago: pago ? f.valor_mensal : 0 }).eq('id', f.id)
     const setter = f.tipo === 'fixa' ? setFixas : setVariaveis
     setter(prev => prev.map(x => x.id === f.id ? { ...x, pago, valor_pago: pago ? x.valor_mensal : 0 } : x))
@@ -219,9 +293,7 @@ export default function DespesasClient() {
       pago: false, valor_pago: 0, conta_id: f.conta_id,
       mes: proxMes, ano: proxAno,
     }))
-    if (inserir.length > 0) {
-      await supabase.from('despesas_fixas_flow').insert(inserir)
-    }
+    if (inserir.length > 0) await supabase.from('despesas_fixas_flow').insert(inserir)
     setReplicando(false)
     setModalReplicar(false)
     alert(`${itens.length} despesa(s) replicada(s) para ${MESES[proxMes - 1]}/${proxAno}!`)
@@ -261,6 +333,7 @@ export default function DespesasClient() {
               <span style={{ fontSize: 11, color: '#6B7280', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: 100 }}>
                 {f.tipo === 'fixa' ? 'Fixa' : 'Variável'}
               </span>
+              {f.retroativo && <span style={{ fontSize: 11, color: '#fcd34d', background: 'rgba(245,158,11,0.08)', padding: '2px 8px', borderRadius: 100 }}>retroativo</span>}
             </div>
             <div style={{ fontSize: 12, color: '#6B7280' }}>
               {f.categoria}{f.dia_vencimento ? ` · vence dia ${f.dia_vencimento}` : ''}{nomeConta ? ` · ${nomeConta}` : ''}
@@ -356,10 +429,10 @@ export default function DespesasClient() {
       {/* ABAS */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#0D0F1A', borderRadius: 10, padding: 4, border: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap' as const }}>
         {([
-          { key: 'fixa',        label: `Fixas (${fixas.length})`,         info: INFO_FIXA },
-          { key: 'variavel',    label: `Variáveis (${variaveis.length})`,  info: INFO_VARIAVEL },
-          { key: 'diaria',      label: `Diárias (${diarias.length})`,      info: INFO_DIARIA },
-          { key: 'consolidado', label: `Consolidar`,                       info: INFO_CONSOLIDAR },
+          { key: 'fixa',        label: `Fixas (${fixas.length})`,        info: INFO_FIXA },
+          { key: 'variavel',    label: `Variáveis (${variaveis.length})`, info: INFO_VARIAVEL },
+          { key: 'diaria',      label: `Diárias (${diarias.length})`,     info: INFO_DIARIA },
+          { key: 'consolidado', label: `Consolidar`,                      info: INFO_CONSOLIDAR },
         ] as { key: TipoAba; label: string; info: string }[]).map(t => (
           <button key={t.key} onClick={() => setAba(t.key)}
             style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: aba === t.key ? 600 : 400, background: aba === t.key ? (t.key === 'consolidado' ? '#0f766e' : INDIGO) : 'transparent', color: aba === t.key ? '#fff' : '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
@@ -368,7 +441,7 @@ export default function DespesasClient() {
         ))}
       </div>
 
-      {/* Botão replicar (fixas e variáveis) */}
+      {/* Botão replicar */}
       {(aba === 'fixa' || aba === 'variavel') && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <button onClick={abrirModalReplicar}
@@ -437,7 +510,6 @@ export default function DespesasClient() {
           {/* ABA CONSOLIDADO */}
           {aba === 'consolidado' && (
             <div>
-              {/* Resumo consolidado */}
               <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 12 }}>
                   <div>
@@ -457,7 +529,6 @@ export default function DespesasClient() {
                 </div>
               </div>
 
-              {/* 3 colunas: Fixas | Variáveis | Diárias */}
               {fixas.length === 0 && variaveis.length === 0 && diarias.length === 0 ? (
                 <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '48px 24px', textAlign: 'center' }}>
                   <p style={{ color: '#6B7280', fontSize: 14 }}>Nenhuma despesa lançada em {MESES[mesSel-1]}</p>
@@ -466,8 +537,7 @@ export default function DespesasClient() {
                 <>
                   <style>{`.consol-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; } @media(max-width:768px){ .consol-cols { grid-template-columns: 1fr !important; } }`}</style>
                   <div className="consol-cols">
-
-                    {/* Coluna Fixas */}
+                    {/* Fixas */}
                     <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Fixas ({fixas.length})</span>
@@ -475,28 +545,23 @@ export default function DespesasClient() {
                       </div>
                       {fixas.length === 0 ? (
                         <div style={{ padding: '24px 16px', textAlign: 'center' as const, color: '#4B5563', fontSize: 13 }}>Nenhuma</div>
-                      ) : (
-                        <div>
-                          {fixas.map(f => {
-                            const st = corStatus(f)
-                            return (
-                              <div key={f.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.descricao}</div>
-                                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
-                                </div>
-                                <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</div>
-                                  <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
+                      ) : fixas.map(f => {
+                        const st = corStatus(f)
+                        return (
+                          <div key={f.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.descricao}</div>
+                              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</div>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-
-                    {/* Coluna Variáveis */}
+                    {/* Variáveis */}
                     <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Variáveis ({variaveis.length})</span>
@@ -504,28 +569,23 @@ export default function DespesasClient() {
                       </div>
                       {variaveis.length === 0 ? (
                         <div style={{ padding: '24px 16px', textAlign: 'center' as const, color: '#4B5563', fontSize: 13 }}>Nenhuma</div>
-                      ) : (
-                        <div>
-                          {variaveis.map(f => {
-                            const st = corStatus(f)
-                            return (
-                              <div key={f.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.descricao}</div>
-                                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
-                                </div>
-                                <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</div>
-                                  <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
+                      ) : variaveis.map(f => {
+                        const st = corStatus(f)
+                        return (
+                          <div key={f.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.descricao}</div>
+                              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</div>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: st.bg, color: st.txt }}>{st.label}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-
-                    {/* Coluna Diárias */}
+                    {/* Diárias */}
                     <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Diárias ({diarias.length})</span>
@@ -533,24 +593,19 @@ export default function DespesasClient() {
                       </div>
                       {diarias.length === 0 ? (
                         <div style={{ padding: '24px 16px', textAlign: 'center' as const, color: '#4B5563', fontSize: 13 }}>Nenhuma</div>
-                      ) : (
-                        <div>
-                          {diarias.map(d => (
-                            <div key={d.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{d.descricao}</div>
-                                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{d.categoria} · {new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
-                              </div>
-                              <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(d.valor)}</div>
-                                <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: 'rgba(34,197,94,0.1)', color: '#4ade80' }}>pago</span>
-                              </div>
-                            </div>
-                          ))}
+                      ) : diarias.map(d => (
+                        <div key={d.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{d.descricao}</div>
+                            <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{d.categoria} · {new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(d.valor)}</div>
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 100, background: 'rgba(34,197,94,0.1)', color: '#4ade80' }}>pago</span>
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
-
                   </div>
                 </>
               )}
@@ -570,9 +625,14 @@ export default function DespesasClient() {
             <p style={{ fontSize: 14, color: '#9CA3AF', marginBottom: 8, lineHeight: 1.6 }}>
               Valor: <strong style={{ color: VERM }}>{fmt(modalConfirmPago.despesa.valor_mensal)}</strong>
             </p>
-            {modalConfirmPago.despesa.conta_id && (
+            {modalConfirmPago.despesa.conta_id && !modalConfirmPago.despesa.retroativo && (
               <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 20, lineHeight: 1.6 }}>
                 ⚠️ Este valor será deduzido da conta <strong style={{ color: '#fff' }}>{contas.find(c => c.id === modalConfirmPago!.despesa.conta_id)?.nome || ''}</strong>.
+              </p>
+            )}
+            {modalConfirmPago.despesa.retroativo && (
+              <p style={{ fontSize: 13, color: '#fcd34d', marginBottom: 20, lineHeight: 1.6 }}>
+                📅 Lançamento retroativo — o saldo da conta <strong>não será alterado</strong>.
               </p>
             )}
             <div style={{ display: 'flex', gap: 10 }}>
@@ -596,24 +656,17 @@ export default function DespesasClient() {
             <h3 style={{ fontSize: 17, fontWeight: 600, color: '#fff', margin: '0 0 6px' }}>
               Replicar para {MESES[mesSel === 12 ? 0 : mesSel]}/{mesSel === 12 ? anoSel + 1 : anoSel}
             </h3>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>
-              Selecione quais despesas deseja replicar para o mês seguinte.
-            </p>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>Selecione quais despesas deseja replicar para o mês seguinte.</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <button onClick={() => setSelecionadosReplicar((aba === 'fixa' ? fixas : variaveis).map(f => f.id))}
-                style={{ background: 'none', border: 'none', color: '#818CF8', fontSize: 13, cursor: 'pointer' }}>
-                Selecionar todas
-              </button>
+                style={{ background: 'none', border: 'none', color: '#818CF8', fontSize: 13, cursor: 'pointer' }}>Selecionar todas</button>
               <button onClick={() => setSelecionadosReplicar([])}
-                style={{ background: 'none', border: 'none', color: '#6B7280', fontSize: 13, cursor: 'pointer' }}>
-                Limpar seleção
-              </button>
+                style={{ background: 'none', border: 'none', color: '#6B7280', fontSize: 13, cursor: 'pointer' }}>Limpar seleção</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginBottom: 20 }}>
               {(aba === 'fixa' ? fixas : variaveis).map(f => (
                 <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: selecionadosReplicar.includes(f.id) ? 'rgba(79,70,229,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${selecionadosReplicar.includes(f.id) ? 'rgba(79,70,229,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 10, cursor: 'pointer' }}>
-                  <input type="checkbox"
-                    checked={selecionadosReplicar.includes(f.id)}
+                  <input type="checkbox" checked={selecionadosReplicar.includes(f.id)}
                     onChange={e => {
                       if (e.target.checked) setSelecionadosReplicar(prev => [...prev, f.id])
                       else setSelecionadosReplicar(prev => prev.filter(id => id !== f.id))
@@ -623,15 +676,13 @@ export default function DespesasClient() {
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>{f.descricao}</div>
                     <div style={{ fontSize: 11, color: '#6B7280' }}>{f.categoria}{f.dia_vencimento ? ` · dia ${f.dia_vencimento}` : ''}</div>
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>{f.valor_mensal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: VERM }}>{fmt(f.valor_mensal)}</span>
                 </label>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setModalReplicar(false)}
-                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>
-                Cancelar
-              </button>
+                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Cancelar</button>
               <button onClick={replicarSelecionados} disabled={replicando || selecionadosReplicar.length === 0}
                 style={{ flex: 2, background: selecionadosReplicar.length === 0 ? 'rgba(79,70,229,0.3)' : '#4F46E5', border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: selecionadosReplicar.length === 0 ? 'not-allowed' : 'pointer', opacity: replicando ? 0.7 : 1 }}>
                 {replicando ? 'Replicando...' : `Replicar ${selecionadosReplicar.length} despesa(s)`}
@@ -691,12 +742,12 @@ export default function DespesasClient() {
                       placeholder="0,00" style={inp} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta de pagamento</label>
+                    <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta de pagamento *</label>
                     <select value={aba === 'fixa' ? formF.conta_id : formV.conta_id}
                       onChange={e => aba === 'fixa' ? setFormF((p: any) => ({ ...p, conta_id: e.target.value })) : setFormV((p: any) => ({ ...p, conta_id: e.target.value }))}
                       style={inp}>
                       <option value="">Selecione a conta *</option>
-      {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                      {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
                 </div>
@@ -707,8 +758,6 @@ export default function DespesasClient() {
                     style={{ width: 18, height: 18, accentColor: INDIGO }} />
                   <label htmlFor="pago" style={{ fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Já pago</label>
                 </div>
-
-                {/* Lançamento retroativo — só aparece se "já pago" estiver marcado */}
                 {(aba === 'fixa' ? formF.pago : formV.pago) && (
                   <div style={{ marginBottom: 20, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -757,9 +806,9 @@ export default function DespesasClient() {
                       placeholder="0,00" style={inp} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta</label>
+                    <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Conta *</label>
                     <select value={formD.conta_id} onChange={e => setFormD((p: any) => ({ ...p, conta_id: e.target.value }))} style={inp}>
-                      <option value="">Sem conta</option>
+                      <option value="">Selecione a conta *</option>
                       {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
