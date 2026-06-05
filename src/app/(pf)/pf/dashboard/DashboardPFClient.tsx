@@ -234,7 +234,7 @@ export default function DashboardPFClient() {
 
       {/* KPIs principais */}
       <div className="db-kpis">
-        <KPI label="Salário"           valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
+        <KPI label="Recebimentos"           valor={fmt(totalRecebido)}  sub={`Previsto: ${fmt(totalPrevisto)}`}  cor={VERDE} />
         <KPI label="Total de gastos"   valor={fmt(totalSaidas)}    sub={`${pctTotal}% da renda`}            cor={pctTotal > 80 ? VERM : AMBER} />
         <KPI label="Total em reservas" valor={fmt(totalReservado)} sub="Acumulado em todas as reservas"     cor={INDIGO} />
         <KPI label="Saldo disponível"  valor={fmt(saldoDisp)}      sub="Receita menos gastos"               cor={saldoDisp >= 0 ? '#fff' : VERM} />

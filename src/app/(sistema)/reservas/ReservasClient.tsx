@@ -16,11 +16,13 @@ const TIPOS_INFO: Record<string, { label: string; desc: string; icon: string; co
 }
 
 interface Reserva { id: string; tipo: string; nome?: string; percentual: number; valor_acumulado: number; meta: number }
-interface Aporte { id: string; valor: number; data: string }
+interface Aporte { id: string; valor: number; data: string; conta_id?: string }
+interface Conta { id: string; nome: string; saldo_inicial: number; cor?: string }
 
 export default function ReservasClient() {
   const [userId, setUserId]     = useState<string | null>(null)
   const [reservas, setReservas] = useState<Reserva[]>([])
+  const [contas, setContas]     = useState<Conta[]>([])
   const [receita, setReceita]   = useState(0)
   const [loading, setLoading]   = useState(true)
 
@@ -33,9 +35,10 @@ export default function ReservasClient() {
   const [salvando, setSalvando] = useState(false)
 
   // Modal aporte
-  const [modalAporte, setModalAporte]   = useState<Reserva | null>(null)
-  const [aporteValor, setAporteValor]   = useState(0)
-  const [aporteData, setAporteData]     = useState(new Date().toISOString().split('T')[0])
+  const [modalAporte, setModalAporte]     = useState<Reserva | null>(null)
+  const [aporteValor, setAporteValor]     = useState(0)
+  const [aporteData, setAporteData]       = useState(new Date().toISOString().split('T')[0])
+  const [aporteConta, setAporteConta]     = useState('')
   const [salvandoAporte, setSalvandoAporte] = useState(false)
 
   // Modal histórico
@@ -61,12 +64,14 @@ export default function ReservasClient() {
       setUserId(user.id)
       const mes = new Date().getMonth() + 1
       const ano = new Date().getFullYear()
-      const [r, rec] = await Promise.all([
+      const [r, rec, c] = await Promise.all([
         supabase.from('reservas_flow').select('*').eq('user_id', user.id),
         supabase.from('receitas_flow').select('valor_recebido').eq('user_id', user.id).eq('mes', mes).eq('ano', ano),
+        supabase.from('contas_flow').select('id, nome, saldo_inicial, cor').eq('user_id', user.id).order('nome'),
       ])
       setReservas(r.data || [])
       setReceita((rec.data || []).reduce((s: number, x: any) => s + x.valor_recebido, 0))
+      setContas(c.data || [])
       setLoading(false)
     }
     carregar()
@@ -101,21 +106,42 @@ export default function ReservasClient() {
     setModalAporte(r)
     setAporteValor(0)
     setAporteData(new Date().toISOString().split('T')[0])
+    setAporteConta('')
   }
 
   async function confirmarAporte() {
     if (!modalAporte || aporteValor <= 0) return
     setSalvandoAporte(true)
     const novoAcum = modalAporte.valor_acumulado + aporteValor
-    await Promise.all([
+
+    const ops: Promise<any>[] = [
       supabase.from('reservas_flow').update({ valor_acumulado: novoAcum }).eq('id', modalAporte.id),
       supabase.from('aportes_reservas_flow').insert({
         user_id: userId,
         reserva_id: modalAporte.id,
         valor: aporteValor,
         data: aporteData,
+        conta_id: aporteConta || null,
       }),
-    ])
+    ]
+
+    // Debitar da conta selecionada
+    if (aporteConta) {
+      const conta = contas.find(c => c.id === aporteConta)
+      if (conta) {
+        ops.push(
+          supabase.from('contas_flow').update({
+            saldo_inicial: conta.saldo_inicial - aporteValor,
+          }).eq('id', aporteConta)
+        )
+        setContas(prev => prev.map(c => c.id === aporteConta
+          ? { ...c, saldo_inicial: c.saldo_inicial - aporteValor }
+          : c
+        ))
+      }
+    }
+
+    await Promise.all(ops)
     setReservas(prev => prev.map(r => r.id === modalAporte.id ? { ...r, valor_acumulado: novoAcum } : r))
     setSalvandoAporte(false)
     setModalAporte(null)
@@ -125,7 +151,7 @@ export default function ReservasClient() {
     setModalHistorico(r)
     setLoadingHistorico(true)
     const { data } = await supabase.from('aportes_reservas_flow')
-      .select('id, valor, data')
+      .select('id, valor, data, conta_id')
       .eq('reserva_id', r.id)
       .order('data', { ascending: false })
     setHistorico(data || [])
@@ -280,8 +306,6 @@ export default function ReservasClient() {
           )
           return renderCard(r)
         })}
-
-        {/* Reservas personalizadas */}
         {reservas.filter(r => !TIPOS_INFO[r.tipo]).map(r => renderCard(r))}
       </div>
 
@@ -290,9 +314,7 @@ export default function ReservasClient() {
         <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={e => e.target === e.currentTarget && setModalEditar(false)}>
           <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 440 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 24 }}>
-              Editar — {formNome}
-            </h2>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 24 }}>Editar — {formNome}</h2>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Nome</label>
               <input value={formNome} onChange={e => setFormNome(e.target.value)} style={inp} />
@@ -319,22 +341,49 @@ export default function ReservasClient() {
       {modalAporte && (
         <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={e => e.target === e.currentTarget && setModalAporte(null)}>
-          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 400 }}>
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 420 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 8 }}>Registrar aporte</h2>
             <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 24 }}>
               {modalAporte.nome || TIPOS_INFO[modalAporte.tipo]?.label} — acumulado: {fmt(modalAporte.valor_acumulado)}
             </p>
+
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Valor do aporte (R$)</label>
-              <input type="number" value={aporteValor} onChange={e => setAporteValor(parseFloat(e.target.value) || 0)} autoFocus style={inp} />
+              <input type="number" value={aporteValor || ''} onChange={e => setAporteValor(parseFloat(e.target.value) || 0)} autoFocus style={inp} />
             </div>
-            <div style={{ marginBottom: 24 }}>
+
+            <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>Data</label>
               <input type="date" value={aporteData} onChange={e => setAporteData(e.target.value)} style={inp} />
             </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 13, color: '#9CA3AF', display: 'block', marginBottom: 6 }}>
+                Debitar de qual conta? <span style={{ color: '#4B5563' }}>(opcional)</span>
+              </label>
+              <select value={aporteConta} onChange={e => setAporteConta(e.target.value)} style={inp}>
+                <option value=''>— Não debitar nenhuma conta —</option>
+                {contas.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome} ({fmt(c.saldo_inicial)})
+                  </option>
+                ))}
+              </select>
+              {aporteConta && aporteValor > 0 && (() => {
+                const conta = contas.find(c => c.id === aporteConta)
+                const novoSaldo = conta ? conta.saldo_inicial - aporteValor : 0
+                return (
+                  <div style={{ marginTop: 8, fontSize: 12, color: novoSaldo < 0 ? '#FCA5A5' : '#4ade80' }}>
+                    Saldo após aporte: {fmt(novoSaldo)}
+                    {novoSaldo < 0 && ' ⚠️ saldo insuficiente'}
+                  </div>
+                )
+              })()}
+            </div>
+
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setModalAporte(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 12, fontSize: 14, color: '#9CA3AF', cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={confirmarAporte} disabled={salvandoAporte} style={{ flex: 1, background: INDIGO, border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', opacity: salvandoAporte ? 0.7 : 1 }}>
+              <button onClick={confirmarAporte} disabled={salvandoAporte || aporteValor <= 0} style={{ flex: 1, background: INDIGO, border: 'none', borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', opacity: (salvandoAporte || aporteValor <= 0) ? 0.7 : 1 }}>
                 {salvandoAporte ? 'Salvando...' : 'Confirmar aporte'}
               </button>
             </div>
@@ -346,7 +395,7 @@ export default function ReservasClient() {
       {modalHistorico && (
         <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={e => e.target === e.currentTarget && setModalHistorico(null)}>
-          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
+          <div style={{ background: '#0D0F1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
               {modalHistorico.nome || TIPOS_INFO[modalHistorico.tipo]?.label}
             </h2>
@@ -358,14 +407,20 @@ export default function ReservasClient() {
               <p style={{ color: '#6B7280', textAlign: 'center', padding: '24px 0' }}>Nenhum aporte registrado ainda.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
-                {historico.map(a => (
-                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span style={{ fontSize: 13, color: '#9CA3AF' }}>
-                      {new Date(a.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </span>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: VERDE }}>+ {fmt(a.valor)}</span>
-                  </div>
-                ))}
+                {historico.map(a => {
+                  const contaNome = contas.find(c => c.id === a.conta_id)?.nome
+                  return (
+                    <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div>
+                        <span style={{ fontSize: 13, color: '#9CA3AF' }}>
+                          {new Date(a.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                        {contaNome && <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>🏦 {contaNome}</div>}
+                      </div>
+                      <span style={{ fontSize: 15, fontWeight: 600, color: VERDE }}>+ {fmt(a.valor)}</span>
+                    </div>
+                  )
+                })}
                 <div style={{ marginTop: 8, padding: '12px 16px', background: 'rgba(79,70,229,0.08)', borderRadius: 10, border: '1px solid rgba(79,70,229,0.2)', display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 13, color: '#818CF8', fontWeight: 600 }}>Total em aportes</span>
                   <span style={{ fontSize: 15, fontWeight: 700, color: '#818CF8' }}>{fmt(historico.reduce((s, a) => s + a.valor, 0))}</span>
