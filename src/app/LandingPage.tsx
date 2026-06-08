@@ -286,7 +286,7 @@ export default function LandingPage() {
               {['Método 3 Passos exclusivo para autônomo','Teto semanal calculado automaticamente','Fundo de Meses Fracos — proteção nos meses ruins','Receita prevista vs recebida em tempo real','Alertas quando está perto do limite'].map(i => <li key={i}>{i}</li>)}
             </ul>
             <div className="perfil-card-price">
-              <div className="perfil-card-price-val">R$ 19,90<span style={{ fontSize: 14, fontWeight: 400, color: 'var(--gray2)' }}>/mês</span></div>
+              <div className="perfil-card-price-val">R$ 29,90<span style={{ fontSize: 14, fontWeight: 400, color: 'var(--gray2)' }}>/mês</span></div>
               <div className="perfil-card-price-sub">30 dias grátis · Sem cartão</div>
             </div>
             <button className="perfil-card-btn" onClick={() => router.push('/auth/cadastro')}>Começar como Autônomo →</button>
@@ -365,13 +365,13 @@ export default function LandingPage() {
             <span className="plano-badge">Zynflow Autônomo</span>
             <div className="plano-title">Para quem tem renda variável</div>
             <div className="plano-sub">Freelancer, MEI, consultor, profissional liberal</div>
-            <div className="plano-price">R$ 19<span>,90/mês</span></div>
+            <div className="plano-price">R$ 29<span>,90/mês</span></div>
             <div className="plano-trial">✓ 30 dias completamente grátis · Sem cartão</div>
             <ul className="plano-items">
               {['Dashboard com Método 3 Passos','Teto semanal automático','Fundo de Meses Fracos','Receitas, despesas e contas ilimitadas','Metas financeiras com aportes','Checklist semanal interativo','Histórico anual com gráficos','Suporte por WhatsApp'].map(i => <li key={i}>{i}</li>)}
             </ul>
             <button className="btn-plano" onClick={() => router.push('/auth/cadastro')}>Começar 30 dias grátis →</button>
-            <p className="plano-fine">Depois do trial, R$ 19,90/mês. Cancele quando quiser.</p>
+            <p className="plano-fine">Depois do trial, R$ 29,90/mês. Cancele quando quiser.</p>
           </div>
 
           {/* PF */}
