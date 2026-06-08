@@ -8,8 +8,8 @@ const VERDE  = '#10b981'
 
 const PLANOS = {
   autonomo: {
-    preco:    'R$ 19,90/mês',
-    precoNum: 'R$ 19,90',
+    preco:    'R$ 29,90/mês',
+    precoNum: 'R$ 29,90',
     cor:      INDIGO,
     titulo:   'Zynflow Pro — Autônomo',
     itens: [

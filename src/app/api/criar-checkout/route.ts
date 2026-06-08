@@ -12,13 +12,12 @@ const supabaseAdmin = () => createClient(
 )
 
 const PRICE_IDS = {
-  autonomo: 'price_1TTQTZPI61I7rxR2xph7S0Ht',
-  pf:       'price_1TVbmEPI61I7rxR20oLEJ50e',
+  autonomo: 'price_1Tg8m8PI61I7rxR2NLJ4tbeq', // R$29,90/mês (atualizado 08/06/2026)
+  pf:       'price_1TVbmEPI61I7rxR20oLEJ50e',  // R$34,90/mês
 }
 
 export async function POST(req: NextRequest) {
   const { user_id, email, nome } = await req.json()
-
   const sb = supabaseAdmin()
 
   // Buscar customer e perfil do usuário
@@ -40,7 +39,6 @@ export async function POST(req: NextRequest) {
       metadata: { user_id },
     })
     customerId = customer.id
-
     await sb.from('usuarios_flow').update({
       stripe_customer_id: customerId,
     }).eq('user_id', user_id)
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
     cancel_url:  `${process.env.NEXT_PUBLIC_SITE_URL}/assinar`,
     locale:      'pt-BR',
     metadata:    { user_id, perfil },
-    allow_promotion_codes: true, // 👈 habilita o campo de cupom no checkout
+    allow_promotion_codes: true,
   })
 
   return NextResponse.json({ url: session.url })
